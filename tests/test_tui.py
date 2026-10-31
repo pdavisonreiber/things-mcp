@@ -357,8 +357,8 @@ async def test_cursor_skips_spacer_and_heading_rows(core):
 
 
 def test_logo_reads_things_3_and_fits_the_sidebar():
-    from things_mcp import style as tui_style
-    rows = tui_style.logo().plain.split('\n')
+    from things_mcp import style
+    rows = style.logo().plain.split('\n')
     assert len(rows) == 3
     assert {len(r) for r in rows} == {30}
     assert rows[0].startswith('▀█▀')  # T

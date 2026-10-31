@@ -1,14 +1,21 @@
 # Changelog
 
-## Unreleased
+## v0.9.0 - 2026-10-31
 
 ### Features
 
 - **Command-Line Interface**: New `things` command with listing commands for every list (`today`, `inbox`, `logbook -p 2w`, `projects`, `search`, `find`, …) and write commands (`add`, `add-project`, `add-area`, `update`, `done`, `cancel`, `reopen`, `schedule`, `deadline`, `move`, `tag`, `update-area`, `open`). Items can be referred to by their number in the last listing, a UUID, or a UUID prefix. `--json` prints the same envelope as the MCP structured output.
 - **Terminal UI**: New `things tui` / `things-tui` (Textual, installed with the `tui` extra). Laid out like the Things Mac app: the sidebar is grouped like Things' with projects nested under areas, Today has a This Evening section, and Upcoming, Anytime, Logbook and projects are grouped by date, project or heading. Keys follow Things' Mac shortcuts without ⌘ (`k` complete, `s` When, `t`/`e`/`r`/`o` start dates, `[`/`]` and `,`/`.` nudge dates, `M` move, `T` tags, `1`–`6` lists, `?` for all). Styled after Things' dark mode (per-list icon colours, deadline flags, #tags, a detail card) in a flat layout (a shaded sidebar, no boxes, a command-line prompt) with a pixel-font `THINGS 3` logo; `THINGS_TUI_ICONS=nerd` switches to Nerd Font icons. Rows update immediately after a write, and the view refreshes when the Things database changes.
 
+- **CLI Matches the TUI**: Listings use the TUI's icons, colours, deadline flags, ✎ notes marker and #tags in aligned columns, grouped like the Things lists (This Evening, Upcoming by date, Anytime by project). Rows are numbered in the order shown. Output piped to another program is plain text.
+- **Move Picker**: In the TUI, `M` opens a filterable list of projects and areas instead of asking for a title.
+- **Details Pop-Up**: In the TUI, `i` shows an item's details as a pop-up and `I` hides or shows the details pane.
+
 ### Maintenance
 
+- **Continuous Integration**: A GitHub Actions workflow lints and runs the test suite on Python 3.12 and 3.13 on every push and pull request.
+- **Mac Test Plan**: `docs/cli_tui_test_plan.md` is a short checklist for trying the CLI and TUI against real Things.
+- **Lint Clean-Up**: Removed unused imports and a placeholder-free f-string.
 - **Shared Core Module**: The MCP tools' logic moved into `things_mcp.core`, which the MCP server, CLI and TUI all use. MCP tool output is unchanged.
 - **Database Integration Tests**: A synthetic Things database (`tests/fixtures/things_db.py`) lets tests run the CLI, MCP tools and TUI against real things.py queries.
 

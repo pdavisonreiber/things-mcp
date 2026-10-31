@@ -81,11 +81,11 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
 
 5. **src/things_mcp/tui.py** - `things tui` / `things-tui` (Textual, optional `tui` extra). Mirrors the Things Mac app: sidebar order/nesting, list grouping (This Evening via `core.evening_uuids()`, which reads `TMTask.startBucket` because things.py doesn't), and key bindings taken from Things' Mac shortcuts with ⌘ dropped — keep new bindings consistent with that table in the README. Prompts use a persistent `CommandLine` above the key bar (`_ask` → `CommandLine.ask`; Enter submits, Escape cancels) and `?` opens a `HelpScreen` pop-up built from `KEY_HELP`. Writes are fire-and-forget, so it updates rows optimistically, re-reads after `REFRESH_AFTER_WRITE`, and polls the database file's mtime to pick up external changes.
 
-   - **tui_style.py** holds the Things-dark palette (`LIST_COLOURS`), icon sets (Unicode default; Nerd Font via `THINGS_TUI_ICONS=nerd`), the pixel-font `THINGS 3` sidebar logo, and the Rich renderers for rows, group headings, the list banner, sidebar entries and the detail card. Change the look there, not in tui.py.
+   - **style.py** (shared with the CLI; must not import Textual) holds the Things-dark palette (`LIST_COLOURS`), icon sets (Unicode default; Nerd Font via `THINGS_TUI_ICONS=nerd`), the pixel-font `THINGS 3` sidebar logo, and the Rich renderers for rows, group headings, the list banner, sidebar entries and the detail card. Change the look there, not in tui.py or cli.py. The Textual theme (`THEME`) lives in tui.py.
 
-6. **src/things_mcp/display.py** - Compact one-line rendering for CLI/TUI; uses `project_title`/`area_title`/`heading_title` from things.py rows so lists need no per-item lookups.
+6. **src/things_mcp/display.py** - List grouping shared by CLI and TUI (`group_today` with This Evening, `group_upcoming`, `group_by_location`, `group_logbook`, `group_by_heading`, `without_headings`) and `detail()` text. Rows use `project_title`/`area_title`/`heading_title` from things.py, so lists need no per-item lookups.
 
-7. **tests/** - Test suite (271 tests)
+7. **tests/** - Test suite (273 tests; CI runs them on Python 3.12 and 3.13 via `.github/workflows/tests.yml`)
    - **conftest.py** - Pytest fixtures and mock data
    - **_helpers.py** - `tool_text()` reads the text channel from a `ToolResult` (or a plain-string result) so text assertions work across both return shapes
    - **test_url_scheme.py** - Tests for URL construction

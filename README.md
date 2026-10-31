@@ -165,7 +165,7 @@ things open today           # reveal a list or item in the Things app
 ```
 
 - **Referring to items:** use the number shown next to an item in the most recent listing, a full UUID, or a unique UUID prefix (at least 4 characters). Numbers are remembered in `~/.cache/things-mcp/last-list.json`.
-- **Output:** one line per item by default; `--long` / `-l` prints full details; `--json` prints the same `{items, count, total, offset, limit}` envelope as the MCP tools' structured output. Listing commands take `--limit` / `-n` and `--offset`.
+- **Output:** one line per item by default, in the same style as the TUI (grouped like the Things list, with colours in a terminal and plain text when piped); `--long` / `-l` prints full details; `--json` prints the same `{items, count, total, offset, limit}` envelope as the MCP tools' structured output. Listing commands take `--limit` / `-n` and `--offset`.
 - **Several items at once:** `done`, `cancel`, `schedule`, `deadline`, `move` and `tag` accept several items. Multiple to-dos go to Things in one bulk call (this needs the URL-scheme auth token, which is read from the Things database automatically).
 - Run `things --help` or `things <command> --help` for every option.
 
@@ -187,7 +187,7 @@ Keys follow [Things' Mac shortcuts](https://culturedcode.com/things/support/arti
 | `enter` | Open: enter a project or area, or edit a to-do's title | Return |
 | `k` / `K` | Complete (again to reopen) / cancel | ⌘K / ⌥⌘K |
 | `d` | Duplicate | ⌘D |
-| `M` | Move to a project or area | ⇧⌘M |
+| `M` | Move: pick a project or area from a list | ⇧⌘M |
 | `s` | When… | ⌘S |
 | `t` `e` `r` `o` | Start Today / This Evening / Anytime / Someday | ⌘T ⌘E ⌘R ⌘O |
 | `]` `[` (`}` `{`) | Start date +/- 1 day (1 week) | ⌃] ⌃[ (⌃⇧] ⌃⇧[) |
@@ -201,6 +201,7 @@ Keys follow [Things' Mac shortcuts](https://culturedcode.com/things/support/arti
 | `left` / `right` | Back / enter project | ⌘← / ⌘→ |
 | `alt+up` / `alt+down` | Select first / last | ⌥↑ / ⌥↓ |
 | `/` | Show/hide sidebar | ⌘/ |
+| `i` / `I` | Details pop-up / show or hide the details pane | — |
 | `ctrl+o` | Show the item in the Things app | — |
 | `ctrl+r` | Refresh | — |
 | `?` | Key help (pop-up) | — |
@@ -354,6 +355,10 @@ uv run pytest tests/test_url_scheme.py
 uv run pytest -k "test_add_todo"
 ```
 
+### CLI and TUI Test Plan
+
+[`docs/cli_tui_test_plan.md`](docs/cli_tui_test_plan.md) is a short checklist for trying the CLI and TUI against real Things on a Mac. The automated tests run on Linux with Things mocked out, and run on every push via GitHub Actions.
+
 ### MCP Integration Test
 
 The project includes an integration test plan that can be executed by Claude (via Claude Cowork or Claude Code) to verify all MCP tools work correctly against a live Things database.
@@ -371,8 +376,8 @@ things-mcp/
 │   ├── server.py        # MCP server implementation
 │   ├── cli.py           # `things` command-line interface
 │   ├── tui.py           # `things tui` terminal interface (Textual)
-│   ├── tui_style.py     # TUI palette, icons and row/detail rendering
-│   ├── display.py       # Compact one-line rendering for CLI/TUI
+│   ├── style.py         # Palette, icons and row/detail rendering (CLI and TUI)
+│   ├── display.py       # List grouping and detail text (CLI and TUI)
 │   ├── url_scheme.py    # Things URL scheme + AppleScript implementation
 │   └── formatters.py    # Data formatting utilities
 ├── tests/               # Unit tests

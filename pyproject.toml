@@ -1,6 +1,6 @@
 [project]
 name = "things-mcp"
-version = "0.8.2"
+version = "0.9.0"
 description = "Things app Model Context Protocol (MCP) server"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -42,9 +42,10 @@ things = "things_mcp.cli:main"
 things-tui = "things_mcp.tui:run"
 
 [project.urls]
-Homepage = "https://github.com/hald/things-mcp"
-Repository = "https://github.com/hald/things-mcp"
-Issues = "https://github.com/hald/things-mcp/issues"
+Homepage = "https://github.com/pdavisonreiber/things-mcp"
+Repository = "https://github.com/pdavisonreiber/things-mcp"
+Issues = "https://github.com/pdavisonreiber/things-mcp/issues"
+Upstream = "https://github.com/hald/things-mcp"
 
 [build-system]
 requires = ["hatchling"]
