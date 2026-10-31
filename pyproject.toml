@@ -21,17 +21,24 @@ dependencies = [
     "httpx>=0.28.1",
     "fastmcp>=3.0.0,<4",
     "things-py>=0.0.15",
+    "click>=8.1",
 ]
 
 [project.optional-dependencies]
+tui = [
+    "textual>=1.0",
+]
 test = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24.0",
     "pytest-mock>=3.14.0",
+    "textual>=1.0",
 ]
 
 [project.scripts]
 things-mcp = "things_mcp.server:main"
+things = "things_mcp.cli:main"
+things-tui = "things_mcp.tui:run"
 
 [project.urls]
 Homepage = "https://github.com/hald/things-mcp"

@@ -394,9 +394,9 @@ def bulk_update_todos(ids: list, list=None, list_id=None, tags=None, add_tags=No
 def update_items(uuids: Iterable[str], **changes) -> int:
     """Apply the same change to a mix of to-dos and projects.
 
-    Changes accepted by both item types: when, deadline, tags, completed,
-    canceled. To-dos additionally accept add_tags, list, list_id, heading and
-    heading_id. One to-do goes through ``update``; several go through a single
+    Changes accepted by both item types: title, notes, when, deadline, tags,
+    completed, canceled. To-dos additionally accept add_tags, list, list_id,
+    heading, heading_id and the checklist arguments. One to-do goes through ``update``; several go through a single
     bulk ``json`` call. Projects are updated one at a time.
 
     Returns the number of items submitted.
@@ -417,13 +417,18 @@ def update_items(uuids: Iterable[str], **changes) -> int:
         else:
             raise ThingsError(f"'{item.get('title', uuid)}' is a {kind}; only to-dos and projects can be changed this way")
 
-    project_only = {'when', 'deadline', 'tags', 'completed', 'canceled'}
-    if project_ids and set(changes) - project_only:
-        bad = ", ".join(sorted(set(changes) - project_only))
+    project_ok = {'title', 'notes', 'when', 'deadline', 'tags', 'completed', 'canceled'}
+    if project_ids and set(changes) - project_ok:
+        bad = ", ".join(sorted(set(changes) - project_ok))
         raise ThingsError(f"Projects don't support: {bad}")
 
-    if len(todo_ids) == 1:
-        update_todo(todo_ids[0], **changes)
+    bulk_ok = {'list', 'list_id', 'tags', 'add_tags', 'when', 'deadline',
+               'heading', 'heading_id', 'completed', 'canceled'}
+    if len(todo_ids) == 1 or (todo_ids and set(changes) - bulk_ok):
+        # Single item, or a change the bulk JSON call doesn't cover (title,
+        # notes, checklist): one update URL per to-do.
+        for tid in todo_ids:
+            update_todo(tid, **changes)
     elif todo_ids:
         bulk_update_todos(todo_ids, **changes)
     for pid in project_ids:

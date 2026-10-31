@@ -14,6 +14,10 @@ uv run things-mcp
 
 # Run with HTTP transport
 THINGS_MCP_TRANSPORT=http uv run things-mcp
+
+# CLI and TUI (TUI needs the 'tui' extra: uv sync --extra tui)
+uv run things --help
+uv run things tui
 ```
 
 ### Testing
@@ -21,7 +25,7 @@ THINGS_MCP_TRANSPORT=http uv run things-mcp
 The project includes a comprehensive unit test suite covering URL scheme construction and data formatting functions.
 
 ```bash
-# Install test dependencies
+# Install test dependencies (includes Textual for the TUI tests)
 uv sync --extra test
 
 # Run all tests
@@ -46,9 +50,15 @@ Test coverage includes:
 
 ## Architecture Overview
 
-This is a Model Context Protocol (MCP) server that bridges Claude Desktop with the Things 3 task management app on macOS. The architecture consists of:
+This is a Model Context Protocol (MCP) server that bridges Claude Desktop with the Things 3 task management app on macOS. The same package also ships a `things` CLI and a Textual TUI. All three front ends sit on one shared core:
 
-1. **src/things_mcp/server.py** - Main MCP server implementation using FastMCP (3.x)
+0. **src/things_mcp/core.py** - Front-end-agnostic operations; put new logic here, not in a front end
+   - Reads (list views, logbook/recent windows, search, tag usage) return plain lists of things.py dicts
+   - Someday filtering and the `things.today()` workaround live here (server re-exports the old names)
+   - Writes (`add_todo`, `update_todo`, `bulk_update_todos`, `update_items` for mixed to-dos/projects, areas, show/search in app)
+   - User-facing problems raise `ThingsError`; each front end turns that into its own error output (MCP keeps the exact legacy strings)
+
+1. **src/things_mcp/server.py** - MCP front end using FastMCP (3.x); tools are thin wrappers over `core`
    - Defines all MCP tools for interacting with Things (26 tools)
    - List views (inbox, today, upcoming, etc.)
    - CRUD operations for todos/projects/areas (Areas have create/read/update — no delete by design; see below)
@@ -67,7 +77,13 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
    - Converts Things database objects to human-readable text
    - Handles nested data (projects within areas, checklist items, etc.)
 
-4. **tests/** - Unit test suite (192 tests)
+4. **src/things_mcp/cli.py** - `things` CLI (Click). Items are referenced by number from the last listing (cached in `$XDG_CACHE_HOME/things-mcp/last-list.json`), full UUID, or UUID prefix. `--json` mirrors the MCP structured envelope.
+
+5. **src/things_mcp/tui.py** - `things tui` / `things-tui` (Textual, optional `tui` extra). Writes are fire-and-forget, so it updates rows optimistically, re-reads after `REFRESH_AFTER_WRITE`, and polls the database file's mtime to pick up external changes.
+
+6. **src/things_mcp/display.py** - Compact one-line rendering for CLI/TUI; uses `project_title`/`area_title`/`heading_title` from things.py rows so lists need no per-item lookups.
+
+7. **tests/** - Test suite (241 tests)
    - **conftest.py** - Pytest fixtures and mock data
    - **_helpers.py** - `tool_text()` reads the text channel from a `ToolResult` (or a plain-string result) so text assertions work across both return shapes
    - **test_url_scheme.py** - Tests for URL construction
@@ -76,6 +92,8 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
    - **test_things_server_headings.py** - Tests for heading functionality
    - **test_someday_filtering.py** - Tests for Someday project filtering
    - **test_mcp_server_filtering.py** - Integration tests for MCP server filtering
+   - **test_core.py**, **test_cli.py**, **test_tui.py** - Core helpers, CLI (Click `CliRunner`), TUI (Textual Pilot, headless)
+   - **test_integration_db.py** - CLI, MCP tools and TUI against a synthetic Things database built by **fixtures/things_db.py** (real things.py queries; only `execute_url` is mocked)
 
 ## Key Implementation Details
 

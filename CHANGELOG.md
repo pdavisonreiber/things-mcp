@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- **Command-Line Interface**: New `things` command with listing commands for every list (`today`, `inbox`, `logbook -p 2w`, `projects`, `search`, `find`, …) and write commands (`add`, `add-project`, `add-area`, `update`, `done`, `cancel`, `reopen`, `schedule`, `deadline`, `move`, `tag`, `update-area`, `open`). Items can be referred to by their number in the last listing, a UUID, or a UUID prefix. `--json` prints the same envelope as the MCP structured output.
+- **Terminal UI**: New `things tui` / `things-tui` (Textual, installed with the `tui` extra). Sidebar of lists, projects and areas; item table; detail pane; keys to complete, cancel, add, schedule, set deadlines, move, tag, rename, search and open in Things. Rows update immediately after a write, and the view refreshes when the Things database changes.
+
+### Maintenance
+
+- **Shared Core Module**: The MCP tools' logic moved into `things_mcp.core`, which the MCP server, CLI and TUI all use. MCP tool output is unchanged.
+- **Database Integration Tests**: A synthetic Things database (`tests/fixtures/things_db.py`) lets tests run the CLI, MCP tools and TUI against real things.py queries.
+
 ## v0.8.2 - 2026-10-25
 
 ### Bug fixes

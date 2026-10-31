@@ -126,6 +126,76 @@ After installation:
 * Use task ages to identify stale items: "Which tasks in my Anytime list are older than 2 weeks?"
 
 
+## Command Line and Terminal UI
+
+The same package also installs a `things` command-line tool and a full-screen terminal interface. They share the MCP server's code, so they see the same lists (including the Someday-project filtering and Logbook fixes) and write through the same Things URL scheme and AppleScript.
+
+### Install
+
+```bash
+# CLI only
+uv tool install "things-mcp @ git+https://github.com/pdavisonreiber/things-mcp"
+
+# CLI + TUI
+uv tool install "things-mcp[tui] @ git+https://github.com/pdavisonreiber/things-mcp"
+
+# From a checkout
+uv sync --extra tui && uv run things
+```
+
+Like the MCP server, it runs on the Mac where Things 3 is installed and needs "Enable Things URLs" turned on for writes.
+
+### CLI
+
+```bash
+things                      # Today (same as: things today)
+things inbox                # also: upcoming, anytime, someday, trash
+things logbook -p 2w        # completed and canceled in the last 2 weeks
+things recent 3d            # open items created in the last 3 days
+things projects             # also: areas, tags, headings, todos --project 2
+things search dentist       # title/notes search; `things find` takes filters
+things show 3               # full details of item 3 from the last listing
+
+things add Buy oat milk -w today -t errand -c "Check fridge first"
+things add Draft agenda --in 2 --heading "Prep"
+things done 1 3             # complete items 1 and 3 from the last listing
+things schedule tomorrow 2  # also: deadline, move --to, tag --add, cancel, reopen
+things update 4 --title "New title" --notes "…" --append "Checklist item"
+things open today           # reveal a list or item in the Things app
+```
+
+- **Referring to items:** use the number shown next to an item in the most recent listing, a full UUID, or a unique UUID prefix (at least 4 characters). Numbers are remembered in `~/.cache/things-mcp/last-list.json`.
+- **Output:** one line per item by default; `--long` / `-l` prints full details; `--json` prints the same `{items, count, total, offset, limit}` envelope as the MCP tools' structured output. Listing commands take `--limit` / `-n` and `--offset`.
+- **Several items at once:** `done`, `cancel`, `schedule`, `deadline`, `move` and `tag` accept several items. Multiple to-dos go to Things in one bulk call (this needs the URL-scheme auth token, which is read from the Things database automatically).
+- Run `things --help` or `things <command> --help` for every option.
+
+### TUI
+
+```bash
+things tui      # or: things-tui
+```
+
+A sidebar of lists, projects and areas; the selected list's items; and the highlighted item's details.
+
+| Key | Action |
+|---|---|
+| `x` / `space` | Complete (or reopen a completed item) |
+| `c` | Cancel |
+| `a` | Add a to-do to the current list or project |
+| `s` / `d` | Set when / deadline |
+| `m` | Move to a project or area (by title) |
+| `t` | Add tags |
+| `e` | Rename |
+| `o` | Show in the Things app |
+| `/` | Search |
+| `r` | Refresh |
+| `q` | Quit |
+
+### How writes behave
+
+Most writes go through the Things URL scheme, which doesn't report back: the command returns once macOS has handed the URL to Things, not once Things has saved it. The CLI says "sent to Things" for that reason, and a listing run straight afterwards may not show the change yet. The TUI updates the changed row immediately, re-reads the database a second later, and also refreshes whenever Things writes to its database, so changes made in the Things app appear too.
+
+
 ## Available Tools
 
 ### List Views
@@ -251,7 +321,7 @@ If it's not working:
 The project includes a comprehensive unit test suite for the URL scheme and formatter modules.
 
 ```bash
-# Install test dependencies
+# Install test dependencies (includes Textual for the TUI tests)
 uv sync --extra test
 
 # Run all tests
@@ -280,15 +350,22 @@ things-mcp/
 ├── src/things_mcp/      # Main package
 │   ├── __init__.py      # Package exports
 │   ├── __main__.py      # Entry point for python -m
+│   ├── core.py          # Shared reads/writes used by every front end
 │   ├── server.py        # MCP server implementation
-│   ├── url_scheme.py    # Things URL scheme implementation
+│   ├── cli.py           # `things` command-line interface
+│   ├── tui.py           # `things tui` terminal interface (Textual)
+│   ├── display.py       # Compact one-line rendering for CLI/TUI
+│   ├── url_scheme.py    # Things URL scheme + AppleScript implementation
 │   └── formatters.py    # Data formatting utilities
 ├── tests/               # Unit tests
 │   ├── conftest.py      # Test fixtures and configuration
 │   ├── test_url_scheme.py
 │   ├── test_formatters.py
 │   ├── test_someday_filtering.py
-│   └── test_mcp_server_filtering.py
+│   ├── test_mcp_server_filtering.py
+│   ├── test_core.py, test_cli.py, test_tui.py
+│   ├── test_integration_db.py  # CLI/MCP/TUI against a synthetic Things database
+│   └── fixtures/things_db.py   # Builds that database
 ├── docs/                # Documentation
 │   └── mcp_integration_test_plan.md  # Claude-executable integration test
 ├── manifest.json        # MCPB package manifest
