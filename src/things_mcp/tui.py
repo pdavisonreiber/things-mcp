@@ -85,7 +85,9 @@ def _day_label(value) -> Optional[str]:
 
 
 def group_upcoming(items: list) -> Groups:
-    return group_by(lambda i: _day_label(i.get('start_date')), items, ungrouped_first=False)
+    """By start date, soonest first (things.py doesn't return them in date order)."""
+    ordered = sorted(items, key=lambda i: str(i.get('start_date') or '9999'))
+    return group_by(lambda i: _day_label(i.get('start_date')), ordered, ungrouped_first=False)
 
 
 def group_by_location(items: list) -> Groups:
@@ -115,6 +117,11 @@ class Source:
     read_only: bool = False
 
 
+def _without_headings(items: list) -> list:
+    """Headings already appear as group titles; don't also list them as rows."""
+    return [i for i in items if i.get('type') != 'heading']
+
+
 BUILTIN_ORDER = ['inbox', 'today', 'upcoming', 'anytime', 'someday', 'logbook']  # ⌘1–⌘6
 
 
@@ -123,8 +130,10 @@ def builtin_sources() -> list[Source]:
         Source('inbox', 'Inbox', core.inbox),
         Source('today', 'Today', core.today, {'when': 'today'}, group_today),
         Source('upcoming', 'Upcoming', core.upcoming, group=group_upcoming),
-        Source('anytime', 'Anytime', core.anytime, {'when': 'anytime'}, group_by_location),
-        Source('someday', 'Someday', core.someday, {'when': 'someday'}, group_by_location),
+        Source('anytime', 'Anytime', lambda: _without_headings(core.anytime()), {'when': 'anytime'},
+               group_by_location),
+        Source('someday', 'Someday', lambda: _without_headings(core.someday()), {'when': 'someday'},
+               group_by_location),
         Source('logbook', 'Logbook', lambda: core.logbook('1m'), group=group_logbook, read_only=True),
         Source('trash', 'Trash', core.trash, read_only=True),
     ]
@@ -680,6 +689,7 @@ class ThingsApp(App):
         if self._write(lambda: core.update_items([item['uuid']], **changes), message) and local:
             item.update(local)
             self._redraw_row(item['uuid'])
+            self.show_detail()
 
     def action_new_todo(self) -> None:
         if self.current is None or self.current.read_only:

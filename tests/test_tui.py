@@ -330,3 +330,32 @@ async def test_empty_list_shows_logo_state(core):
         await pilot.press('2')
         await pilot.pause()
         assert app.query_one('#items', DataTable).display and not empty.display
+
+
+def test_upcoming_groups_are_in_date_order():
+    from things_mcp.tui import group_upcoming
+    later = (date.today() + timedelta(days=9)).isoformat()
+    sooner = (date.today() + timedelta(days=1)).isoformat()
+    groups = group_upcoming([{'uuid': 'a', 'start_date': later}, {'uuid': 'b', 'start_date': sooner}])
+    assert [g[0] for g in groups] == ['Tomorrow', groups[1][0]] and groups[1][1][0]['uuid'] == 'a'
+
+
+async def test_detail_updates_after_completing(core):
+    app = ThingsApp()
+    async with app.run_test() as pilot:
+        await _start(app, pilot)
+        await pilot.press('k')
+        await pilot.pause()
+        assert DONE in str(app.query_one('#detail').render())
+
+
+async def test_anytime_hides_heading_rows(core):
+    core.anytime.return_value = [
+        {'uuid': 'h1', 'title': 'Prep', 'type': 'heading', 'project_title': 'Launch'},
+        {'uuid': 'a1', 'title': 'Draft', 'type': 'to-do', 'project_title': 'Launch'}]
+    app = ThingsApp()
+    async with app.run_test() as pilot:
+        await _start(app, pilot)
+        await pilot.press('4')
+        await pilot.pause()
+        assert 'h1' not in app.items and 'a1' in app.items
