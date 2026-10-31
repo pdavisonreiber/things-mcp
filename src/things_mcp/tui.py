@@ -32,7 +32,7 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
-from textual.widgets import DataTable, Footer, Input, Label, OptionList, Static
+from textual.widgets import DataTable, Footer, Input, OptionList, Static
 from textual.widgets.option_list import Option
 
 from . import core, display
@@ -153,28 +153,115 @@ def area_source(a: dict) -> Source:
 # Widgets
 # ---------------------------------------------------------------------------
 
-class PromptScreen(ModalScreen[Optional[str]]):
-    """A one-line text prompt. Enter submits (possibly empty); Escape cancels (None)."""
+class CommandInput(Input):
+    """The command line's text field; Escape cancels the current question."""
 
-    BINDINGS = [Binding('escape', 'cancel', 'Cancel')]
-
-    def __init__(self, question: str, value: str = '', placeholder: str = ''):
-        super().__init__()
-        self.question = question
-        self.value = value
-        self.placeholder = placeholder
-
-    def compose(self) -> ComposeResult:
-        with Vertical(id='prompt'):
-            yield Label(self.question)
-            with Horizontal(id='prompt-line'):
-                yield Static(Text('› ', style=f'bold {style.AMBER}'), id='prompt-caret')
-                yield Input(value=self.value, placeholder=self.placeholder)
-
-    def on_input_submitted(self, event: Input.Submitted) -> None:
-        self.dismiss(event.value.strip())
+    BINDINGS = [Binding('enter', 'submit', 'OK'), Binding('escape', 'cancel', 'Cancel')]
 
     def action_cancel(self) -> None:
+        self.parent.cancel()
+
+
+class CommandLine(Horizontal):
+    """A persistent one-line prompt above the key bar, like a shell or the
+    Vim/Emacs command line. Idle, it shows a dim caret; asked a question, it
+    shows the question and takes the answer. Enter submits; Escape cancels."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._callback: Optional[Callable[[Optional[str]], None]] = None
+        self._return_focus = None
+
+    def compose(self) -> ComposeResult:
+        yield Static(id='command-question')
+        yield Static(id='command-caret')
+        yield CommandInput(id='command-input', disabled=True)
+
+    def on_mount(self) -> None:
+        self._idle()
+
+    @property
+    def active(self) -> bool:
+        return self._callback is not None
+
+    def ask(self, question: str, callback: Callable[[Optional[str]], None],
+            value: str = '', placeholder: str = '') -> None:
+        self._return_focus = self.app.focused
+        self._callback = callback
+        self.add_class('active')
+        self.query_one('#command-question', Static).update(Text(question + ' ', style=style.MUTED))
+        self.query_one('#command-caret', Static).update(Text('› ', style=f'bold {style.AMBER}'))
+        field = self.query_one(CommandInput)
+        field.disabled = False
+        field.placeholder = placeholder
+        field.value = value
+        field.cursor_position = len(value)
+        field.focus()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        event.stop()
+        self._finish(event.value.strip())
+
+    def cancel(self) -> None:
+        self._finish(None)
+
+    def _finish(self, answer: Optional[str]) -> None:
+        callback = self._callback
+        self._idle()
+        if self._return_focus is not None:
+            self._return_focus.focus()
+        if callback:
+            callback(answer)
+
+    def _idle(self) -> None:
+        self._callback = None
+        self.remove_class('active')
+        self.query_one('#command-question', Static).update('')
+        self.query_one('#command-caret', Static).update(Text('› ', style=style.FAINT))
+        field = self.query_one(CommandInput)
+        field.value = ''
+        field.placeholder = ''
+        field.disabled = True
+
+
+# The key list shown by ?, grouped like Things' shortcut page.
+KEY_HELP = [
+    ('Create', [('n  space', 'New to-do', '⌘N  Space')]),
+    ('Edit', [('enter', 'Open / rename', 'Return'), ('k', 'Complete', '⌘K'), ('K', 'Cancel', '⌥⌘K'),
+              ('d', 'Duplicate', '⌘D'), ('T', 'Edit tags', '⇧⌘T'), ('M', 'Move', '⇧⌘M')]),
+    ('Dates', [('s', 'When…', '⌘S'), ('t e r o', 'Today / Evening / Anytime / Someday', '⌘T ⌘E ⌘R ⌘O'),
+               ('] [', 'Start date ±1 day', '⌃] ⌃['), ('} {', 'Start date ±1 week', '⌃⇧] ⌃⇧['),
+               ('D', 'Deadline…', '⇧⌘D'), ('. ,', 'Deadline ±1 day', '⌃. ⌃,'),
+               ('> <', 'Deadline ±1 week', '⌃⇧. ⌃⇧,')]),
+    ('Navigate', [('1–6', 'Inbox … Logbook', '⌘1–⌘6'), ('f', 'Find', '⌘F'), ('O', 'Go to list…', '⇧⌘O'),
+                  ('L', 'Show in parent list', '⌘L'), ('← →', 'Back / enter project', '⌘← ⌘→'),
+                  ('/', 'Show/hide sidebar', '⌘/')]),
+    ('Other', [('ctrl+o', 'Show in Things', ''), ('ctrl+r', 'Refresh', ''), ('?', 'Keys', ''),
+               ('q', 'Quit', '⌘Q')]),
+]
+
+
+class HelpScreen(ModalScreen[None]):
+    """A centred pop-up listing the keys. Any of ? / Escape / q closes it."""
+
+    BINDINGS = [Binding('escape,question_mark,q', 'close', 'Close', show=False)]
+
+    def compose(self) -> ComposeResult:
+        from rich.table import Table
+        table = Table(show_header=False, box=None, padding=(0, 2), expand=False)
+        table.add_column(style=f'bold {style.AMBER}', no_wrap=True, justify='right')
+        table.add_column(style=style.FG, no_wrap=True)
+        table.add_column(style=style.FAINT, no_wrap=True)
+        for n, (section, rows) in enumerate(KEY_HELP):
+            if n:
+                table.add_row('', '', '')
+            table.add_row('', Text(section.upper(), style=f'bold {style.MUTED}'), Text('THINGS', style=style.FAINT) if n == 0 else '')
+            for keys, action, things_keys in rows:
+                table.add_row(keys, action, things_keys)
+        with Vertical(id='help'):
+            yield Static(table)
+
+    def action_close(self) -> None:
         self.dismiss(None)
 
 
@@ -233,19 +320,17 @@ class ThingsApp(App):
         scrollbar-size-vertical: 1; scrollbar-background: {style.BG}; scrollbar-color: {style.RULE};
     }}
     Footer {{ background: {style.BG}; }}
-    PromptScreen {{ align: left bottom; background: {style.BG} 0%; }}
-    #prompt {{
-        width: 100%; height: auto; padding: 0 2; margin-bottom: 1;
-        background: {style.BG}; border: none; border-top: hkey {style.AMBER};
-    }}
-    #prompt Label {{ color: {style.MUTED}; }}
-    #prompt Input {{ background: {style.BG}; border: none; padding: 0; height: 1; }}
-    #prompt Input:focus {{ border: none; }}
-    #prompt-line {{ height: 1; }}
-    #items:focus, #detail-pane:focus, #prompt Input:focus {{ background-tint: {style.BG} 0%; }}
+    CommandLine {{ height: 1; background: {style.BG}; padding: 0 2; }}
+    #command-question {{ width: auto; }}
+    #command-caret {{ width: 2; }}
+    #command-input {{ width: 1fr; height: 1; background: {style.BG}; border: none; padding: 0; }}
+    #command-input:disabled {{ background: {style.BG}; opacity: 100%; }}
+    #command-input:focus {{ border: none; background-tint: {style.BG} 0%; }}
+    HelpScreen {{ align: center middle; background: {style.BG} 70%; }}
+    #help {{ width: 72; height: auto; padding: 1 3; background: {style.SIDEBAR}; }}
+    #items:focus, #detail-pane:focus {{ background-tint: {style.BG} 0%; }}
     #sidebar:focus {{ background-tint: {style.SIDEBAR} 0%; }}
     #items > .datatable--even-row, #items > .datatable--odd-row {{ background: {style.BG}; }}
-    #prompt-caret {{ width: 2; }}
     """
 
     # Things Mac shortcut in the description where it differs from the key.
@@ -316,6 +401,7 @@ class ThingsApp(App):
                 yield Static(id='empty')
                 with VerticalScroll(id='detail-pane'):
                     yield Static(id='detail')
+        yield CommandLine(id='command')
         yield Footer()
 
     def on_mount(self) -> None:
@@ -548,8 +634,8 @@ class ThingsApp(App):
             self.refresh_data()
 
     def refresh_data(self) -> None:
-        if isinstance(self.screen, PromptScreen):
-            return  # don't redraw under an open prompt; the next poll will catch up
+        if self.query_one(CommandLine).active:
+            return  # don't redraw while a question is open; the next poll will catch up
         self.load_sidebar()
         self.load_items(keep_cursor=True)
 
@@ -635,10 +721,7 @@ class ThingsApp(App):
         self._ask('Find to-dos', run_search)
 
     def action_help(self) -> None:
-        if self.screen.query('HelpPanel'):
-            self.action_hide_help_panel()
-        else:
-            self.action_show_help_panel()
+        self.push_screen(HelpScreen())
 
     def action_open_in_things(self) -> None:
         item = self.selected_item()
@@ -682,7 +765,7 @@ class ThingsApp(App):
         def done(answer: Optional[str]) -> None:
             if answer is not None and (answer or allow_empty):
                 then(answer)
-        self.push_screen(PromptScreen(question, value, placeholder), done)
+        self.query_one(CommandLine).ask(question, done, value, placeholder)
 
     def _change(self, item: dict, message: str, local: Optional[dict] = None, **changes) -> None:
         """Send a change for one item; on success apply ``local`` to the row."""

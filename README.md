@@ -177,7 +177,7 @@ things tui      # or: things-tui
 
 The layout follows the Things Mac app: the sidebar is grouped the same way (Inbox / Today, Upcoming, Anytime, Someday / Logbook, Trash / projects / areas with their projects nested beneath), Today ends with a **This Evening** section, Upcoming and the Logbook are grouped by date, Anytime and Someday by project, and projects by heading. A detail pane stands in for Things' inline to-do card.
 
-It has a flat layout (no boxes or panels; the sidebar is a slightly lighter shade, and prompts appear as a command line at the bottom) and a dark palette modelled on Things' dark mode: each built-in list has its own icon colour, deadlines show as red flags with days left, and tags show as #tags. A retro touch: the sidebar opens with a pixel-font `THINGS 3` logo in amber. Icons are plain Unicode by default. If your terminal uses a [Nerd Font](https://www.nerdfonts.com), set `THINGS_TUI_ICONS=nerd` for proper glyphs.
+It has a flat layout (no boxes or panels; the sidebar is a slightly lighter shade, and there's a persistent command line above the key bar where prompts ask for input) and a dark palette modelled on Things' dark mode: each built-in list has its own icon colour, deadlines show as red flags with days left, and tags show as #tags. A retro touch: the sidebar opens with a pixel-font `THINGS 3` logo in amber. Icons are plain Unicode by default. If your terminal uses a [Nerd Font](https://www.nerdfonts.com), set `THINGS_TUI_ICONS=nerd` for proper glyphs.
 
 Keys follow [Things' Mac shortcuts](https://culturedcode.com/things/support/articles/2785159/) with ⌘ dropped and ⇧ kept. ⌃ and ⌥ are dropped too, because terminals can't send them reliably (⌃[ is the same as Escape, and ⌥ types special characters on macOS). Press `?` in the app for the full list.
 
@@ -203,7 +203,7 @@ Keys follow [Things' Mac shortcuts](https://culturedcode.com/things/support/arti
 | `/` | Show/hide sidebar | ⌘/ |
 | `ctrl+o` | Show the item in the Things app | — |
 | `ctrl+r` | Refresh | — |
-| `?` | Key help | — |
+| `?` | Key help (pop-up) | — |
 | `q` | Quit | ⌘Q |
 
 Not available, because neither the URL scheme nor things.py supports them: reordering (⌘↑/↓), repeat schedules (⇧⌘R), new headings (⇧⌘N), moving completed items to the Logbook (⇧⌘Y) and tag filtering (⌃⌥ + tag shortcut). Unlike Things, typing letters doesn't start a search, because single letters are commands here; use `f` or `O`.

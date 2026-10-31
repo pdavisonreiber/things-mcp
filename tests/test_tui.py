@@ -7,7 +7,7 @@ pytest.importorskip('textual')
 
 from textual.widgets import DataTable, Input, OptionList  # noqa: E402
 
-from things_mcp.tui import PromptScreen, ThingsApp  # noqa: E402
+from things_mcp.tui import CommandLine, HelpScreen, ThingsApp  # noqa: E402
 from things_mcp.tui_style import ICONS  # noqa: E402
 
 TODAY = [
@@ -56,9 +56,13 @@ async def _start(app, pilot):
     app.query_one('#items', DataTable).focus()
 
 
+def _prompting(app):
+    return app.query_one(CommandLine).active
+
+
 async def _answer(app, pilot, text):
-    assert isinstance(app.screen, PromptScreen)
-    app.screen.query_one(Input).value = text
+    assert _prompting(app)
+    app.query_one('#command-input', Input).value = text
     await pilot.press('enter')
 
 
@@ -147,7 +151,7 @@ async def test_escape_cancels_prompt_without_writing(core):
         await _start(app, pilot)
         await pilot.press('s')
         await pilot.press('escape')
-        assert not isinstance(app.screen, PromptScreen)
+        assert not _prompting(app)
         core.update_items.assert_not_called()
 
 
@@ -156,7 +160,7 @@ async def test_shift_t_edits_tags_prefilled_and_can_clear(core):
     async with app.run_test() as pilot:
         await _start(app, pilot)
         await pilot.press('T')
-        assert app.screen.query_one(Input).value == 'shop'
+        assert app.query_one('#command-input', Input).value == 'shop'
         await _answer(app, pilot, '')
         core.update_items.assert_called_once_with(['t1'], tags=[])
 
@@ -220,7 +224,7 @@ async def test_enter_on_todo_renames(core):
     async with app.run_test() as pilot:
         await _start(app, pilot)
         await pilot.press('enter')
-        assert app.screen.query_one(Input).value == 'Buy milk'
+        assert app.query_one('#command-input', Input).value == 'Buy milk'
         await _answer(app, pilot, 'Buy oat milk')
         core.update_items.assert_called_once_with(['t1'], title='Buy oat milk')
 
@@ -252,7 +256,7 @@ async def test_f_finds_and_blocks_add(core):
         core.search.assert_called_once_with('inbox')
         assert 'Inbox thing' in _titles(app)
         await pilot.press('n')
-        assert not isinstance(app.screen, PromptScreen)
+        assert not _prompting(app)
 
 
 async def test_slash_toggles_sidebar(core):
@@ -291,10 +295,10 @@ async def test_question_mark_toggles_key_help(core):
         await _start(app, pilot)
         await pilot.press('question_mark')
         await pilot.pause()
-        assert app.screen.query('HelpPanel')
+        assert isinstance(app.screen, HelpScreen)
         await pilot.press('question_mark')
         await pilot.pause()
-        assert not app.screen.query('HelpPanel')
+        assert not isinstance(app.screen, HelpScreen)
 
 
 async def test_cursor_skips_spacer_and_heading_rows(core):
@@ -359,3 +363,16 @@ async def test_anytime_hides_heading_rows(core):
         await pilot.press('4')
         await pilot.pause()
         assert 'h1' not in app.items and 'a1' in app.items
+
+
+async def test_command_line_is_persistent_and_returns_focus(core):
+    app = ThingsApp()
+    async with app.run_test() as pilot:
+        await _start(app, pilot)
+        command = app.query_one(CommandLine)
+        assert command.display and not command.active
+        await pilot.press('s')
+        assert command.active and app.focused.id == 'command-input'
+        await pilot.press('escape')
+        assert not command.active and app.focused.id == 'items'
+        core.update_items.assert_not_called()
