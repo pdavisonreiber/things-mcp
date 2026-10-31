@@ -22,7 +22,7 @@ from textual.theme import Theme
 
 BG = '#1c1d1f'          # list background
 SIDEBAR = '#242528'     # sidebar background
-PANEL = '#2b2c30'       # detail card / prompts
+PANEL = '#26272a'       # hover/subtle fills (flat layout uses BG for panes)
 RULE = '#3a3b40'        # separators
 FG = '#e6e6e8'          # primary text
 MUTED = '#8e8e93'       # secondary text

@@ -156,10 +156,11 @@ class PromptScreen(ModalScreen[Optional[str]]):
         self.placeholder = placeholder
 
     def compose(self) -> ComposeResult:
-        with Vertical(id='prompt') as box:
-            box.border_title = '─ THINGS ─'
+        with Vertical(id='prompt'):
             yield Label(self.question)
-            yield Input(value=self.value, placeholder=self.placeholder)
+            with Horizontal(id='prompt-line'):
+                yield Static(Text('› ', style=f'bold {style.AMBER}'), id='prompt-caret')
+                yield Input(value=self.value, placeholder=self.placeholder)
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         self.dismiss(event.value.strip())
@@ -205,41 +206,48 @@ class ItemTable(DataTable):
 
 class ThingsApp(App):
     TITLE = 'Things'
+    # Flat: one background everywhere, thin rules instead of boxes or panels.
     CSS = f"""
     Screen {{ background: {style.BG}; }}
-    TitleBar {{ height: 1; background: {style.SIDEBAR}; }}
+    TitleBar {{ height: 1; background: {style.BG}; }}
     #title-left {{ width: 1fr; padding: 0 1; }}
     #title-right {{ width: auto; }}
     #sidebar {{
-        width: 34; height: 1fr; background: {style.SIDEBAR}; border: none;
-        scrollbar-size-vertical: 1; scrollbar-background: {style.SIDEBAR};
-        scrollbar-color: {style.RULE};
+        width: 34; height: 1fr; background: {style.BG}; border: none;
         border-right: vkey {style.RULE}; padding: 1 0;
+        scrollbar-size-vertical: 1; scrollbar-background: {style.BG}; scrollbar-color: {style.RULE};
     }}
-    #sidebar > .option-list--option-highlighted {{ background: {style.BLUE} 35%; }}
-    #sidebar:focus > .option-list--option-highlighted {{ background: {style.BLUE} 60%; }}
-    #sidebar > .option-list--separator {{ color: {style.RULE}; }}
+    #sidebar > .option-list--option-highlighted {{ background: {style.BLUE} 25%; text-style: none; }}
+    #sidebar:focus > .option-list--option-highlighted {{ background: {style.BLUE} 45%; }}
+    #sidebar > .option-list--option-hover {{ background: {style.BG}; }}
+    #sidebar > .option-list--separator {{ color: {style.BG}; }}
     #main {{ width: 1fr; padding: 0 2; }}
-    #banner {{ height: 3; padding: 1 0 0 0; border-bottom: hkey {style.RULE}; }}
-    #items {{ height: 2fr; background: {style.BG}; margin-top: 1; }}
-    #items > .datatable--cursor {{ background: {style.BLUE} 30%; }}
-    #items:focus > .datatable--cursor {{ background: {style.BLUE} 55%; }}
-    #items > .datatable--hover {{ background: {style.PANEL}; }}
+    #banner {{ height: 2; padding: 1 0 0 0; }}
+    #items {{
+        height: 2fr; background: {style.BG}; margin-top: 1;
+        scrollbar-size-vertical: 1; scrollbar-background: {style.BG}; scrollbar-color: {style.RULE};
+    }}
+    #items > .datatable--cursor {{ background: {style.BLUE} 25%; text-style: none; }}
+    #items:focus > .datatable--cursor {{ background: {style.BLUE} 45%; }}
+    #items > .datatable--hover {{ background: {style.BG}; }}
     #detail-pane {{
-        height: 1fr; background: {style.PANEL}; padding: 1 2; margin-bottom: 1;
-        border: round {style.RULE}; border-title-color: {style.AMBER};
-        scrollbar-size-vertical: 1; scrollbar-background: {style.PANEL};
-        scrollbar-color: {style.RULE}; scrollbar-color-hover: {style.MUTED};
+        height: 1fr; background: {style.BG}; padding: 1 0 0 0; border: none;
+        border-top: hkey {style.RULE}; border-title-color: {style.FAINT}; border-title-align: left;
+        scrollbar-size-vertical: 1; scrollbar-background: {style.BG}; scrollbar-color: {style.RULE};
     }}
-    #items {{ scrollbar-size-vertical: 1; scrollbar-background: {style.BG}; scrollbar-color: {style.RULE}; }}
-    Footer {{ background: {style.SIDEBAR}; }}
-    PromptScreen {{ align: center middle; background: {style.BG} 60%; }}
+    Footer {{ background: {style.BG}; }}
+    PromptScreen {{ align: left bottom; background: {style.BG} 0%; }}
     #prompt {{
-        width: 72; height: auto; padding: 1 2; background: {style.PANEL};
-        border: round {style.AMBER}; border-title-color: {style.AMBER};
+        width: 100%; height: auto; padding: 0 2; margin-bottom: 1;
+        background: {style.BG}; border: none; border-top: hkey {style.AMBER};
     }}
-    #prompt Input {{ background: {style.BG}; border: tall {style.RULE}; }}
-    #prompt Input:focus {{ border: tall {style.BLUE}; }}
+    #prompt Label {{ color: {style.MUTED}; }}
+    #prompt Input {{ background: {style.BG}; border: none; padding: 0; height: 1; }}
+    #prompt Input:focus {{ border: none; }}
+    #prompt-line {{ height: 1; }}
+    #items:focus, #sidebar:focus, #detail-pane:focus, #prompt Input:focus {{ background-tint: {style.BG} 0%; }}
+    #items > .datatable--even-row, #items > .datatable--odd-row {{ background: {style.BG}; }}
+    #prompt-caret {{ width: 2; }}
     """
 
     # Things Mac shortcut in the description where it differs from the key.
@@ -312,7 +320,7 @@ class ThingsApp(App):
     def on_mount(self) -> None:
         self.register_theme(style.THEME)
         self.theme = style.THEME.name
-        self.query_one('#detail-pane').border_title = '─ DETAILS ─'
+        self.query_one('#detail-pane').border_title = style.spaced('Details')
         table = self.query_one('#items', DataTable)
         table.add_column('', key='mark', width=1)
         table.add_column('Title', key='title')
