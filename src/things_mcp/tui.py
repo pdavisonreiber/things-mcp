@@ -409,7 +409,6 @@ class ThingsApp(App):
         self.theme = style.THEME.name
         table = self.query_one('#items', DataTable)
         table.add_column('', key='pad', width=1)  # left inset that the selection still covers
-        table.add_column('', key='mark', width=1)
         table.add_column('Title', key='title')
         table.add_column('Where', key='where')
         table.add_column('Info', key='info')
@@ -533,9 +532,9 @@ class ThingsApp(App):
                 continue
             if label:
                 if table.row_count:  # breathing room above every heading but the first row
-                    table.add_row('', '', '', '', '', key=f"{HEADER_PREFIX}gap{n}")
-                mark, title = style.group_heading(label, self._colour_key())
-                table.add_row('', mark, title, '', '', key=f"{HEADER_PREFIX}{n}")
+                    table.add_row('', '', '', '', key=f"{HEADER_PREFIX}gap{n}")
+                table.add_row('', style.group_heading(label, self._colour_key()), '', '',
+                              key=f"{HEADER_PREFIX}{n}")
             for item in members:
                 if item.get('uuid'):
                     table.add_row(*self._cells(item), key=item['uuid'])
@@ -552,8 +551,7 @@ class ThingsApp(App):
         key = self.current.key if self.current else ''
         return [
             '',
-            style.checkbox(item),
-            style.title_cell(item),
+            style.row_title(item),
             style.where_cell(item) if not key.startswith('project:') else Text(''),
             style.info_cell(item, key, evening=item.get('uuid') in self.evening),
         ]
@@ -561,7 +559,7 @@ class ThingsApp(App):
     def _redraw_row(self, uuid: str) -> None:
         table = self.query_one('#items', DataTable)
         item = self.items[uuid]
-        for column, value in zip(('pad', 'mark', 'title', 'where', 'info'), self._cells(item)):
+        for column, value in zip(('pad', 'title', 'where', 'info'), self._cells(item)):
             table.update_cell(uuid, column, value)
 
     def selected_uuid(self) -> Optional[str]:

@@ -39,13 +39,22 @@ def core(mocker):
     return m
 
 
-def _titles(app):
+def _row_texts(app):
+    """Each row's title text (without the checkbox), '' for spacer rows."""
     table = app.query_one('#items', DataTable)
-    return [t for t in (str(table.get_row_at(i)[2]) for i in range(table.row_count)) if t]
+    out = []
+    for i in range(table.row_count):
+        key = table.coordinate_to_cell_key((i, 0))[0].value
+        out.append(app.items[key]['title'] if key in app.items else str(table.get_row_at(i)[1]))
+    return out
+
+
+def _titles(app):
+    return [t for t in _row_texts(app) if t]
 
 
 def _mark(app, uuid):
-    return str(app.query_one('#items', DataTable).get_cell(uuid, 'mark'))
+    return str(app.query_one('#items', DataTable).get_cell(uuid, 'title'))[0]
 
 
 DONE, OPEN, CANCELED = ICONS['done'], ICONS['todo'], ICONS['canceled']

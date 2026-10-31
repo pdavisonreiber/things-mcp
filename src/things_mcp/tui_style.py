@@ -240,16 +240,18 @@ def where_cell(item: dict) -> Text:
     return Text(' › '.join(p for p in parts if p), style=FAINT)
 
 
-def group_heading(label: str, list_key: str) -> tuple[Text, Text]:
-    """(icon cell, title cell) for a group heading row in the item table."""
-    # Subheadings: bold, in the list's colour, with an icon. The table adds a
-    # blank row above each one.
+def group_heading(label: str, list_key: str) -> Text:
+    """Title cell for a group heading row: bold, in the list's colour, no
+    symbol, so it starts in the checkbox column (unindented). The table adds
+    a blank row above each one."""
     if label == 'This Evening':
-        return icon('evening'), Text(label, style=f"bold {LIST_COLOURS['evening']}")
-    colour = LIST_COLOURS.get(list_key, LIST_COLOURS['project'])
-    if list_key in ('upcoming', 'logbook'):
-        return Text('▍', style=colour), Text(label, style=f'bold {colour}')
-    return icon('heading', colour), Text(label, style=f'bold {colour}')
+        return Text(label, style=f"bold {LIST_COLOURS['evening']}")
+    return Text(label, style=f"bold {LIST_COLOURS.get(list_key, LIST_COLOURS['project'])}")
+
+
+def row_title(item: dict) -> Text:
+    """Checkbox and title in one cell, so headings can line up with checkboxes."""
+    return Text.assemble(checkbox(item), '  ', title_cell(item))
 
 
 def list_banner(label: str, list_key: str, count: int) -> Text:
