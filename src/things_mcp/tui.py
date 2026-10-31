@@ -169,18 +169,6 @@ class PromptScreen(ModalScreen[Optional[str]]):
         self.dismiss(None)
 
 
-class TitleBar(Horizontal):
-    """Retro top bar: wordmark and current list on the left, date/time on the right."""
-
-    def compose(self) -> ComposeResult:
-        yield Static(id='title-left')
-        yield Static(id='title-right')
-
-    def show(self, label: str, key: str) -> None:
-        self.query_one('#title-left', Static).update(style.title_bar())
-        self.query_one('#title-right', Static).update(style.title_bar_right())
-
-
 class ItemTable(DataTable):
     """The item list. Arrow keys left/right go back / enter (Things: ⌘← / ⌘→)."""
 
@@ -209,12 +197,12 @@ class ThingsApp(App):
     # Flat: one background everywhere, thin rules instead of boxes or panels.
     CSS = f"""
     Screen {{ background: {style.BG}; }}
-    TitleBar {{ height: 1; background: {style.BG}; }}
-    #title-left {{ width: 1fr; padding: 0 1; }}
-    #title-right {{ width: auto; }}
+    #sidebar-pane {{ width: 34; height: 1fr; border-right: vkey {style.RULE}; }}
+    #logo {{ height: auto; padding: 1 2 0 2; }}
+    #clock {{ height: auto; padding: 0 2 0 2; }}
+    #empty {{ height: 2fr; content-align: center middle; display: none; }}
     #sidebar {{
-        width: 34; height: 1fr; background: {style.BG}; border: none;
-        border-right: vkey {style.RULE}; padding: 1 0;
+        height: 1fr; background: {style.BG}; border: none; padding: 1 0;
         scrollbar-size-vertical: 1; scrollbar-background: {style.BG}; scrollbar-color: {style.RULE};
     }}
     #sidebar > .option-list--option-highlighted {{ background: {style.BLUE} 25%; text-style: none; }}
@@ -307,13 +295,16 @@ class ThingsApp(App):
     # -- layout --------------------------------------------------------------
 
     def compose(self) -> ComposeResult:
-        yield TitleBar()
         with Horizontal():
-            yield OptionList(id='sidebar')
+            with Vertical(id='sidebar-pane'):
+                yield Static(style.logo(), id='logo')
+                yield Static(id='clock')
+                yield OptionList(id='sidebar')
             with Vertical(id='main'):
                 yield Static(id='banner')
                 yield ItemTable(id='items', cursor_type='row', show_header=False,
                                 cell_padding=1)
+                yield Static(id='empty')
                 with VerticalScroll(id='detail-pane'):
                     yield Static(id='detail')
         yield Footer()
@@ -330,11 +321,12 @@ class ThingsApp(App):
         self.select_source('today')
         if self.db_path:
             self.set_interval(DB_POLL_INTERVAL, self.check_database)
+        self._update_title()
         self.set_interval(30, self._update_title)
 
     def _update_title(self) -> None:
-        if self.current:
-            self.query_one(TitleBar).show(self.current.label, self._colour_key())
+        """Refresh the clock under the sidebar logo."""
+        self.query_one('#clock', Static).update(style.clock_line())
 
     def _colour_key(self) -> str:
         """The palette key for the current list (projects/areas share one)."""
@@ -460,6 +452,11 @@ class ThingsApp(App):
                     table.add_row(*self._cells(item), key=item['uuid'])
         if selected in self.items:
             table.move_cursor(row=table.get_row_index(selected))
+        empty = not self.items
+        table.display = not empty
+        self.query_one('#empty', Static).display = empty
+        if empty:
+            self.query_one('#empty', Static).update(style.empty_state(self._colour_key()))
         self.show_detail()
 
     def _cells(self, item: dict) -> list:

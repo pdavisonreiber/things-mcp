@@ -317,3 +317,18 @@ def test_wordmarks_render_and_are_selectable(monkeypatch, name):
     assert tui_style.title_bar().plain.strip()
     monkeypatch.setenv('THINGS_TUI_WORDMARK', 'nonsense')
     assert tui_style.title_bar().plain == tui_style.WORDMARKS['gradient']().plain
+
+
+async def test_empty_list_shows_logo_state(core):
+    core.inbox.return_value = []
+    app = ThingsApp()
+    async with app.run_test() as pilot:
+        await _start(app, pilot)
+        await pilot.press('1')
+        await pilot.pause()
+        assert not app.query_one('#items', DataTable).display
+        empty = app.query_one('#empty')
+        assert empty.display and 'Inbox zero.' in str(empty.render())
+        await pilot.press('2')
+        await pilot.pause()
+        assert app.query_one('#items', DataTable).display and not empty.display

@@ -156,6 +156,55 @@ def title_bar() -> Text:
     return WORDMARKS.get(name, _wm_gradient)()
 
 
+# A compact 2-line block font: each letter is 1-3 columns of half blocks.
+LOGO_LETTERS = [
+    ('▀█▀', ' █ '),   # T
+    ('█ █', '█▀█'),   # H
+    ('█', '█'),       # I
+    ('█▄ █', '█ ▀█'), # N
+    ('█▀▀', '█▄█'),   # G
+    ('█▀', '▄█'),     # S
+]
+STRIPE_COLOURS = ('#61bb46', '#fdb827', '#f5821f', '#e03a3e', '#963d97', '#009ddc')
+
+
+def logo(colours: Optional[tuple] = None, dim: bool = False) -> Text:
+    """'THINGS' in the 2-line block font. Amber by default; pass colours
+    (one per letter) for e.g. the Apple stripes. ``dim`` for empty states."""
+    if colours is None:
+        mode = os.environ.get('THINGS_TUI_LOGO', 'amber').lower()
+        colours = STRIPE_COLOURS if mode == 'stripes' else (AMBER,) * len(LOGO_LETTERS)
+    t = Text(justify='left')
+    for row in (0, 1):
+        for n, (letter, colour) in enumerate(zip(LOGO_LETTERS, colours)):
+            if n:
+                t.append(' ')
+            t.append(letter[row], style=RULE if dim else f'bold {colour}')
+        if row == 0:
+            t.append('\n')
+    return t
+
+
+def clock_line() -> Text:
+    now = datetime.now()
+    return Text(f"{now:%a} {now.day} {now:%b}".upper() + f"  ·  {now:%H:%M}", style=FAINT)
+
+
+EMPTY_MESSAGES = {
+    'inbox': 'Inbox zero.', 'today': 'Nothing left for today.', 'upcoming': 'Nothing scheduled.',
+    'anytime': 'Nothing here.', 'someday': 'No someday plans.', 'logbook': 'Nothing logged this month.',
+    'trash': 'Trash is empty.',
+}
+
+
+def empty_state(list_key: str) -> Text:
+    t = logo(dim=True)
+    t.append('\n\n')
+    t.append(EMPTY_MESSAGES.get(list_key, 'Nothing here.'), style=FAINT)
+    t.justify = 'center'
+    return t
+
+
 def title_bar_right() -> Text:
     now = datetime.now()
     return Text(f"{now:%a} {now.day} {now:%b}".upper() + f"  {now:%H:%M} ", style=MUTED)
