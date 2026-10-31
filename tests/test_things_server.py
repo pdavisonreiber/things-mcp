@@ -523,7 +523,7 @@ async def test_pagination_applies_after_someday_filtering(mocker):
     total in the header reflects the filtered count."""
     mocker.patch('things.today', return_value=[_ptodo(str(i), f'T{i}') for i in range(4)])
     mocker.patch(
-        'things_mcp.server.filter_someday_project_tasks',
+        'things_mcp.core.filter_someday_project_tasks',
         side_effect=lambda todos: [t for t in todos if t['title'] != 'T0'],
     )
     result = tool_text(await get_today(limit=2))
