@@ -1,5 +1,4 @@
 import json
-import pytest
 from unittest.mock import patch, Mock
 import subprocess
 import urllib.parse

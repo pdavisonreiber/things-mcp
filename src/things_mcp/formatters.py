@@ -228,7 +228,7 @@ def format_tag(tag: dict, include_items: bool = False) -> str:
 def format_heading(heading: dict, include_items: bool = False) -> str:
     """Helper function to format a single heading."""
     heading_text = f"Title: {heading['title']}\nUUID: {heading['uuid']}"
-    heading_text += f"\nType: heading"
+    heading_text += "\nType: heading"
 
     if heading.get('project'):
         # Prefer the inlined project_title if things-py already provided it,

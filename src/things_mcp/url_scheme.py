@@ -2,7 +2,7 @@ import json as _json
 import urllib.parse
 import subprocess
 import things
-from typing import Optional, Dict, Any, List, Union
+from typing import Optional, Dict, Any, List
 
 # When parameter accepted values:
 # - Keywords: "today", "tomorrow", "evening", "anytime", "someday"

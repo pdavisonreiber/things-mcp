@@ -1,6 +1,5 @@
 """Tests for filtering tasks from Someday projects."""
 
-import pytest
 from unittest.mock import patch
 
 from things_mcp.server import filter_someday_project_tasks
