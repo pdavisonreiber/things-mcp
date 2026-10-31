@@ -91,133 +91,39 @@ def icon(name: str, colour: Optional[str] = None) -> Text:
 
 
 # ---------------------------------------------------------------------------
-# Retro bits
+# Sidebar logo: "THINGS 3" in a 5-pixel bitmap font, drawn with half blocks
 # ---------------------------------------------------------------------------
 
-def _wm_gradient() -> Text:
-    return Text.assemble(('▓▒░ ', AMBER), ('T H I N G S', f'bold {AMBER}'), (' ░▒▓', AMBER))
+LOGO_PIXELS = [            # '#' = on; 5 rows per letter
+    ['###', '.#.', '.#.', '.#.', '.#.'],           # T
+    ['#.#', '#.#', '###', '#.#', '#.#'],           # H
+    ['###', '.#.', '.#.', '.#.', '###'],           # I
+    ['#..#', '##.#', '#.##', '#..#', '#..#'],      # N
+    ['.###', '#...', '#.##', '#..#', '.###'],      # G
+    ['.##', '#..', '.#.', '..#', '##.'],           # S
+    ['###', '..#', '.##', '..#', '###'],           # 3
+]
 
 
-def _wm_prompt() -> Text:
-    return Text.assemble(('~/', MUTED), ('things', f'bold {AMBER}'), (' ❯ ', LIST_COLOURS['logbook']),
-                         ('█', AMBER))
+def _half_blocks(bitmap: list) -> list:
+    """5 pixel rows -> 3 text rows (two pixel rows per text row)."""
+    rows = bitmap + ['.' * len(bitmap[0])]
+    return [''.join('█' if t == '#' and b == '#' else '▀' if t == '#' else '▄' if b == '#' else ' '
+                    for t, b in zip(top, bottom))
+            for top, bottom in zip(rows[0::2], rows[1::2])]
 
 
-def _wm_dos() -> Text:
-    return Text.assemble(('C:\\', MUTED), ('THINGS', f'bold {AMBER}'), ('>', MUTED), ('_', f'bold {AMBER}'))
+LOGO_GLYPHS = [_half_blocks(b) for b in LOGO_PIXELS]
 
 
-def _wm_stripes() -> Text:
-    # The six stripes of the 1977 Apple logo, then the name.
-    t = Text()
-    for colour in ('#61bb46', '#fdb827', '#f5821f', '#e03a3e', '#963d97', '#009ddc'):
-        t.append('▌', style=colour)
-    t.append(' things', style=f'bold {FG}')
-    return t
-
-
-def _wm_manpage() -> Text:
-    return Text.assemble(('THINGS(1)', f'bold {AMBER}'), ('   Getting Things Done Manual', MUTED))
-
-
-def _wm_c64() -> Text:
-    c64 = '#a5a5ff'
-    return Text.assemble(('LOAD "THINGS",8,1', f'bold {c64}'), ('  ', ''), ('READY.', c64), (' █', c64))
-
-
-def _wm_badge() -> Text:
-    return Text.assemble((' THINGS ', f'bold {BG} on {AMBER}'), (' 3 ', f'bold {AMBER} on {RULE}'))
-
-
-def _wm_checkbox() -> Text:
-    return Text.assemble(('[', MUTED), ('x', f'bold {AMBER}'), (']', MUTED), (' things', f'bold {FG}'))
-
-
-def _wm_hex() -> Text:
-    return Text.assemble(('0x', MUTED), ('7H1N65', f'bold {AMBER}'), ('  // things', FAINT))
-
-
-WORDMARKS = {
-    'gradient': _wm_gradient,
-    'prompt': _wm_prompt,
-    'dos': _wm_dos,
-    'stripes': _wm_stripes,
-    'manpage': _wm_manpage,
-    'c64': _wm_c64,
-    'badge': _wm_badge,
-    'checkbox': _wm_checkbox,
-    'hex': _wm_hex,
-}
-
-
-def title_bar() -> Text:
-    """Top bar (left side): the wordmark. Pick one with THINGS_TUI_WORDMARK."""
-    name = os.environ.get('THINGS_TUI_WORDMARK', 'gradient').lower()
-    return WORDMARKS.get(name, _wm_gradient)()
-
-
-# ---------------------------------------------------------------------------
-# Sidebar logo: "THINGS" in a few 3-line fonts
-# ---------------------------------------------------------------------------
-
-def _from_pixels(*letters: list) -> list:
-    """Turn 5-row pixel bitmaps ('#' = on) into 3 rows of half blocks."""
-    glyphs = []
-    for bitmap in letters:
-        rows = bitmap + ['.' * len(bitmap[0])]          # pad to 6 pixel rows
-        glyph = []
-        for top, bottom in zip(rows[0::2], rows[1::2]):
-            glyph.append(''.join(
-                '█' if t == '#' and b == '#' else '▀' if t == '#' else '▄' if b == '#' else ' '
-                for t, b in zip(top, bottom)))
-        glyphs.append(glyph)
-    return glyphs
-
-
-# Each font: (glyphs for T H I N G S, each a list of 3 rows; gap between letters)
-LOGO_FONTS = {
-    # Box drawing, double lines (after FIGlet's "Calvin S").
-    'box': ([['╔╦╗', ' ║ ', ' ╩ '], ['╦ ╦', '╠═╣', '╩ ╩'], ['╦', '║', '╩'],
-             ['╔╗╔', '║║║', '╝╚╝'], ['╔═╗', '║ ╦', '╚═╝'], ['╔═╗', '╚═╗', '╚═╝']], 0),
-    # Box drawing, heavy lines (after FIGlet's "Future").
-    'heavy': ([['┏┳┓', ' ┃ ', ' ╹ '], ['╻ ╻', '┣━┫', '╹ ╹'], ['╻', '┃', '╹'],
-               ['┏┓╻', '┃┗┫', '╹ ╹'], ['┏━╸', '┃╺┓', '┗━┛'], ['┏━┓', '┗━┓', '┗━┛']], 0),
-    # A 5-pixel-tall bitmap font drawn with half blocks: THINGS3.
-    'pixel': (_from_pixels(
-        ['###', '.#.', '.#.', '.#.', '.#.'],
-        ['#.#', '#.#', '###', '#.#', '#.#'],
-        ['###', '.#.', '.#.', '.#.', '###'],
-        ['#..#', '##.#', '#.##', '#..#', '#..#'],
-        ['.###', '#...', '#.##', '#..#', '.###'],
-        ['.##', '#..', '.#.', '..#', '##.'],
-        ['###', '..#', '.##', '..#', '###'],
-    ), 1),
-    # The 2-line block font with a shade underneath.
-    'shade': ([['▀█▀', ' █ ', '░░░'], ['█ █', '█▀█', '░░░'], ['█', '█', '░'],
-               ['█▄ █', '█ ▀█', '░░░░'], ['█▀▀', '█▄█', '░░░'], ['█▀', '▄█', '░░']], 1),
-}
-
-STRIPE_COLOURS = ('#61bb46', '#fdb827', '#f5821f', '#e03a3e', '#963d97', '#009ddc')
-THREE_COLOUR = AMBER  # colour of the '3' in THINGS3
-
-
-def logo(font: Optional[str] = None, colours: Optional[str] = None) -> Text:
-    """'THINGS' in a 3-line font. Font from THINGS_TUI_LOGO (box, heavy, pixel,
-    shade); amber, or the Apple stripes with THINGS_TUI_LOGO_COLOURS=stripes."""
-    font = font or os.environ.get('THINGS_TUI_LOGO', 'pixel').lower()
-    glyphs, gap = LOGO_FONTS.get(font, LOGO_FONTS['pixel'])
-    mode = colours or os.environ.get('THINGS_TUI_LOGO_COLOURS', 'amber').lower()
-    palette = (STRIPE_COLOURS if mode == 'stripes' else (AMBER,) * 6) + (THREE_COLOUR,) * (len(glyphs) - 6)
-    t = Text()
+def logo() -> Text:
+    """THINGS 3 in amber: 1 column between letters, 2 before the 3 (30 wide)."""
+    t = Text(style=f'bold {AMBER}')
     for row in range(3):
-        for n, (glyph, colour) in enumerate(zip(glyphs, palette)):
-            if n and gap:
-                t.append(' ' * (gap + (1 if n == 6 else 0)))  # a little extra room before the 3
-            text = glyph[row]
-            if font == 'shade' and row == 2:
-                t.append(text, style='#7a5a20')
-            else:
-                t.append(text, style=f'bold {colour}')
+        for n, glyph in enumerate(LOGO_GLYPHS):
+            if n:
+                t.append('  ' if n == len(LOGO_GLYPHS) - 1 else ' ')
+            t.append(glyph[row])
         if row < 2:
             t.append('\n')
     return t
@@ -232,16 +138,6 @@ EMPTY_MESSAGES = {
 
 def empty_state(list_key: str) -> Text:
     return Text(EMPTY_MESSAGES.get(list_key, 'Nothing here.'), style=FAINT, justify='center')
-
-
-def title_bar_right() -> Text:
-    now = datetime.now()
-    return Text(f"{now:%a} {now.day} {now:%b}".upper() + f"  {now:%H:%M} ", style=MUTED)
-
-
-def spaced(label: str) -> str:
-    """Letter-spaced small caps for section rules, e.g. 'T H I S  E V E N I N G'."""
-    return '  '.join(' '.join(word.upper()) for word in label.split())
 
 
 # ---------------------------------------------------------------------------
