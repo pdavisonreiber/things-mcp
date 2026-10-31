@@ -212,7 +212,7 @@ def logo(font: Optional[str] = None, colours: Optional[str] = None) -> Text:
     for row in range(3):
         for n, (glyph, colour) in enumerate(zip(glyphs, palette)):
             if n and gap:
-                t.append(' ' * gap)
+                t.append(' ' * (gap + (1 if n == 6 else 0)))  # a little extra room before the 3
             text = glyph[row]
             if font == 'shade' and row == 2:
                 t.append(text, style='#7a5a20')

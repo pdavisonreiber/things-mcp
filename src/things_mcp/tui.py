@@ -198,7 +198,7 @@ class ThingsApp(App):
     CSS = f"""
     Screen {{ background: {style.BG}; }}
     #sidebar-pane {{ width: 34; height: 1fr; border-right: vkey {style.RULE}; }}
-    #logo {{ height: auto; padding: 1 2 0 2; }}
+    #logo {{ height: auto; padding: 1 1 0 1; }}
     #empty {{ height: 2fr; content-align: center middle; display: none; }}
     #sidebar {{
         height: 1fr; background: {style.BG}; border: none; padding: 1 0;
