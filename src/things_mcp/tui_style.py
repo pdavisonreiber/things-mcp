@@ -182,7 +182,7 @@ LOGO_FONTS = {
     # Box drawing, heavy lines (after FIGlet's "Future").
     'heavy': ([['┏┳┓', ' ┃ ', ' ╹ '], ['╻ ╻', '┣━┫', '╹ ╹'], ['╻', '┃', '╹'],
                ['┏┓╻', '┃┗┫', '╹ ╹'], ['┏━╸', '┃╺┓', '┗━┛'], ['┏━┓', '┗━┓', '┗━┛']], 0),
-    # A 5-pixel-tall bitmap font drawn with half blocks.
+    # A 5-pixel-tall bitmap font drawn with half blocks: THINGS3.
     'pixel': (_from_pixels(
         ['###', '.#.', '.#.', '.#.', '.#.'],
         ['#.#', '#.#', '###', '#.#', '#.#'],
@@ -190,6 +190,7 @@ LOGO_FONTS = {
         ['#..#', '##.#', '#.##', '#..#', '#..#'],
         ['.###', '#...', '#.##', '#..#', '.###'],
         ['.##', '#..', '.#.', '..#', '##.'],
+        ['###', '..#', '.##', '..#', '###'],
     ), 1),
     # The 2-line block font with a shade underneath.
     'shade': ([['▀█▀', ' █ ', '░░░'], ['█ █', '█▀█', '░░░'], ['█', '█', '░'],
@@ -197,6 +198,7 @@ LOGO_FONTS = {
 }
 
 STRIPE_COLOURS = ('#61bb46', '#fdb827', '#f5821f', '#e03a3e', '#963d97', '#009ddc')
+THREE_COLOUR = AMBER  # colour of the '3' in THINGS3
 
 
 def logo(font: Optional[str] = None, colours: Optional[str] = None) -> Text:
@@ -205,7 +207,7 @@ def logo(font: Optional[str] = None, colours: Optional[str] = None) -> Text:
     font = font or os.environ.get('THINGS_TUI_LOGO', 'pixel').lower()
     glyphs, gap = LOGO_FONTS.get(font, LOGO_FONTS['pixel'])
     mode = colours or os.environ.get('THINGS_TUI_LOGO_COLOURS', 'amber').lower()
-    palette = STRIPE_COLOURS if mode == 'stripes' else (AMBER,) * len(glyphs)
+    palette = (STRIPE_COLOURS if mode == 'stripes' else (AMBER,) * 6) + (THREE_COLOUR,) * (len(glyphs) - 6)
     t = Text()
     for row in range(3):
         for n, (glyph, colour) in enumerate(zip(glyphs, palette)):
