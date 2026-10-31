@@ -320,7 +320,7 @@ class ThingsApp(App):
         scrollbar-size-vertical: 1; scrollbar-background: {style.BG}; scrollbar-color: {style.RULE};
     }}
     Footer {{ background: {style.BG}; }}
-    CommandLine {{ height: 1; background: {style.BG}; padding: 0 2; }}
+    CommandLine {{ height: 1; background: {style.BG}; padding: 0 1; }}  /* lines up with the key bar */
     #command-question {{ width: auto; }}
     #command-caret {{ width: 2; }}
     #command-input {{ width: 1fr; height: 1; background: {style.BG}; border: none; padding: 0; }}
@@ -384,6 +384,7 @@ class ThingsApp(App):
         self.items: dict[str, dict] = {}
         self.history: list[str] = []
         self.evening: set = set()
+        self.row_group: dict = {}   # uuid -> the group heading the row sits under
         self._last_row = 0
         self._db_stamp = self._stamp()
 
@@ -407,15 +408,18 @@ class ThingsApp(App):
     def on_mount(self) -> None:
         self.register_theme(style.THEME)
         self.theme = style.THEME.name
-        table = self.query_one('#items', DataTable)
-        table.add_column('', key='pad', width=1)  # left inset that the selection still covers
-        table.add_column('Title', key='title')
-        table.add_column('Where', key='where')
-        table.add_column('Info', key='info')
+        self._add_columns(self.query_one('#items', DataTable))
         self.load_sidebar()
         self.select_source('today')
         if self.db_path:
             self.set_interval(DB_POLL_INTERVAL, self.check_database)
+
+    @staticmethod
+    def _add_columns(table: DataTable) -> None:
+        table.add_column('', key='pad', width=1)  # left inset that the selection still covers
+        table.add_column('Title', key='title')
+        table.add_column('Where', key='where')
+        table.add_column('Info', key='info')
 
     def _colour_key(self) -> str:
         """The palette key for the current list (projects/areas share one)."""
@@ -526,7 +530,11 @@ class ThingsApp(App):
         self.items = {i['uuid']: i for i in items if i.get('uuid')}
         self.query_one('#banner', Static).update(
             style.list_banner(self.current.label, self.current.key, len(self.items)))
-        table.clear()
+        # Rebuild the columns too, so widths fit this list rather than the
+        # widest list seen so far.
+        table.clear(columns=True)
+        self._add_columns(table)
+        self.row_group = {}
         for n, (label, members) in enumerate(groups):
             if not members:
                 continue
@@ -537,6 +545,7 @@ class ThingsApp(App):
                               key=f"{HEADER_PREFIX}{n}")
             for item in members:
                 if item.get('uuid'):
+                    self.row_group[item['uuid']] = label
                     table.add_row(*self._cells(item), key=item['uuid'])
         if selected in self.items:
             table.move_cursor(row=table.get_row_index(selected))
@@ -552,7 +561,8 @@ class ThingsApp(App):
         return [
             '',
             style.row_title(item),
-            style.where_cell(item) if not key.startswith('project:') else Text(''),
+            (style.where_cell(item, omit=self.row_group.get(item.get('uuid')))
+             if not key.startswith('project:') else Text('')),
             style.info_cell(item, key, evening=item.get('uuid') in self.evening),
         ]
 

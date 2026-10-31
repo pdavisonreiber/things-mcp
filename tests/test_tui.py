@@ -295,7 +295,7 @@ async def test_detail_follows_cursor(core):
         await pilot.press('down')
         await pilot.pause()
         detail = str(app.query_one('#detail').render())
-        assert 'Write report' in detail and 't2' in detail
+        assert 'Write report' in detail and 't2' not in detail  # no raw ID
 
 
 async def test_question_mark_toggles_key_help(core):
@@ -385,3 +385,31 @@ async def test_command_line_is_persistent_and_returns_focus(core):
         await pilot.press('escape')
         assert not command.active and app.focused.id == 'items'
         core.update_items.assert_not_called()
+
+
+def test_row_title_marks_notes():
+    from things_mcp.tui_style import ICONS, row_title
+    assert row_title({'title': 'A', 'type': 'to-do', 'notes': 'x'}).plain.endswith(ICONS['notes'])
+    assert not row_title({'title': 'A', 'type': 'to-do'}).plain.endswith(ICONS['notes'])
+
+
+def test_where_cell_skips_group_and_shortens():
+    from things_mcp.tui_style import WHERE_WIDTH, where_cell
+    item = {'project_title': 'Kitchen renovation', 'heading_title': 'Design'}
+    assert where_cell(item, omit='Kitchen renovation').plain == 'Design'
+    long = where_cell({'area_title': 'A very long area name', 'project_title': 'And a long project'})
+    assert len(long.plain) == WHERE_WIDTH and long.plain.endswith('…')
+
+
+def test_completed_and_canceled_titles_differ():
+    from things_mcp.tui_style import title_cell
+    done = title_cell({'title': 'A', 'status': 'completed'})
+    gone = title_cell({'title': 'A', 'status': 'canceled'})
+    assert 'strike' not in str(done.style) and 'strike' in str(gone.style)
+
+
+def test_logbook_rows_omit_the_date():
+    from things_mcp.tui_style import info_cell
+    item = {'status': 'completed', 'stop_date': '2026-01-05 10:00:00'}
+    assert info_cell(item, 'logbook').plain == ''
+    assert info_cell(item, 'search:x').plain != ''

@@ -69,7 +69,7 @@ THEME = Theme(
 UNICODE_ICONS = {
     'inbox': '⊟', 'today': '★', 'evening': '☾', 'upcoming': '▦', 'anytime': '≋',
     'someday': '◫', 'logbook': '✔', 'trash': '⌫', 'area': '⬢', 'project': '◔',
-    'search': '⌕', 'deadline': '⚑', 'checklist': '≡', 'notes': '¶', 'heading': '▸',
+    'search': '⌕', 'deadline': '⚑', 'checklist': '≡', 'notes': '✎', 'reminder': '◷', 'heading': '▸',
     'todo': '☐', 'done': '☑', 'canceled': '☒', 'project_done': '●', 'project_canceled': '⊘',
 }
 
@@ -164,8 +164,14 @@ def checkbox(item: dict) -> Text:
 
 
 def title_cell(item: dict) -> Text:
-    finished = item.get('status') in ('completed', 'canceled')
-    style = f'{FAINT} strike' if finished else ('bold ' + FG if item.get('type') == 'project' else FG)
+    """Completed: muted (as in Things' Logbook). Canceled: faint and struck through."""
+    status = item.get('status')
+    if status == 'completed':
+        style = MUTED
+    elif status == 'canceled':
+        style = f'{FAINT} strike'
+    else:
+        style = 'bold ' + FG if item.get('type') == 'project' else FG
     return Text(item.get('title') or '(untitled)', style=style)
 
 
@@ -205,12 +211,12 @@ def deadline_badge(value) -> Optional[Text]:
 
 
 def info_cell(item: dict, list_key: str, evening: bool = False) -> Text:
-    """Right-hand details: schedule badge, deadline, checklist, notes, tag pills."""
+    """Right-hand details: schedule badge, deadline, checklist progress, #tags."""
     parts: list[Text] = []
     start = _parse_day(item.get('start_date'))
     if item.get('status') in ('completed', 'canceled'):
         stopped = _parse_day(item.get('stop_date'))
-        if stopped:
+        if stopped and list_key != 'logbook':  # the Logbook's date headings already say it
             parts.append(Text(short_day(stopped) if stopped != date.today() else 'today', style=FAINT))
     elif evening and list_key != 'today':
         parts.append(icon('evening'))
@@ -227,17 +233,26 @@ def info_cell(item: dict, list_key: str, evening: bool = False) -> Text:
     if isinstance(checklist, list) and checklist:
         done = sum(1 for c in checklist if c.get('status') == 'completed')
         parts.append(Text(f"{ICONS['checklist']} {done}/{len(checklist)}", style=MUTED))
-    if item.get('notes'):
-        parts.append(Text(ICONS['notes'], style=FAINT))
-
     if item.get('tags'):
         parts.append(Text(' '.join(f"#{tag}" for tag in item['tags']), style=TAG_FG))
     return Text('  ').join(parts)
 
 
-def where_cell(item: dict) -> Text:
+WHERE_WIDTH = 24  # longest location shown in a row before it's shortened with …
+
+
+def where_text(item: dict, omit: Optional[str] = None) -> str:
+    """'Area › Project › Heading', leaving out ``omit`` (the group heading
+    the row already sits under)."""
     parts = [item.get('area_title'), item.get('project_title'), item.get('heading_title')]
-    return Text(' › '.join(p for p in parts if p), style=FAINT)
+    return ' › '.join(p for p in parts if p and p != omit)
+
+
+def where_cell(item: dict, omit: Optional[str] = None) -> Text:
+    text = where_text(item, omit)
+    if len(text) > WHERE_WIDTH:
+        text = text[:WHERE_WIDTH - 1].rstrip() + '…'
+    return Text(text, style=FAINT)
 
 
 def group_heading(label: str, list_key: str) -> Text:
@@ -250,8 +265,12 @@ def group_heading(label: str, list_key: str) -> Text:
 
 
 def row_title(item: dict) -> Text:
-    """Checkbox and title in one cell, so headings can line up with checkboxes."""
-    return Text.assemble(checkbox(item), '  ', title_cell(item))
+    """Checkbox, title and (if it has notes) a faint ✎, in one cell so headings
+    can line up with the checkboxes."""
+    t = Text.assemble(checkbox(item), '  ', title_cell(item))
+    if item.get('notes') and item.get('type') in ('to-do', 'project'):
+        t.append(f" {ICONS['notes']}", style=FAINT)
+    return t
 
 
 def list_banner(label: str, list_key: str, count: int) -> Text:
@@ -266,7 +285,7 @@ def list_banner(label: str, list_key: str, count: int) -> Text:
     return t
 
 
-def sidebar_entry(label: str, key: str, count: Optional[int] = None, width: int = 28) -> Text:
+def sidebar_entry(label: str, key: str, count: Optional[int] = None, width: int = 32) -> Text:
     kind = key.split(':', 1)[0]
     name = kind if kind in ('project', 'area') else key
     t = Text(' ')
@@ -298,28 +317,33 @@ def _age(value) -> str:
     return f"{days // 365} year{'s' if days >= 730 else ''} ago"
 
 
+DETAIL_INDENT = '   '  # lines up with the title text, after "☐  "
+
+
 def detail_card(item: dict, evening: bool = False) -> Text:
-    """A Things-like card for a to-do or project: title, notes, checklist, metadata."""
+    """A Things-like card for a to-do or project: title, then notes, checklist
+    and metadata, all indented under the title text."""
     t = Text()
     t.append_text(checkbox(item))
     t.append('  ')
-    t.append_text(title_cell(item).copy())
-    t.stylize('bold', 0, len(t))
+    title = title_cell(item).copy()
+    title.stylize('bold')
+    t.append_text(title)
     t.append('\n')
 
     if item.get('notes'):
         t.append('\n')
-        t.append(str(item['notes']).strip(), style=MUTED)
-        t.append('\n')
+        for line in str(item['notes']).strip().splitlines():
+            t.append(f"{DETAIL_INDENT}{line}\n", style=MUTED)
 
     checklist = item.get('checklist')
     if isinstance(checklist, list) and checklist:
         t.append('\n')
         for c in checklist:
             done = c.get('status') == 'completed'
-            t.append(f"  {ICONS['done'] if done else ICONS['todo']} ", style=BLUE if done else MUTED)
-            t.append(c.get('title', ''), style=f'{FAINT} strike' if done else FG)
-            t.append('\n')
+            t.append(DETAIL_INDENT)
+            t.append(f"{ICONS['done'] if done else ICONS['todo']}  ", style=BLUE if done else MUTED)
+            t.append(f"{c.get('title', '')}\n", style=MUTED if done else FG)
 
     meta: list[tuple[Text, str]] = []
     start = _parse_day(item.get('start_date'))
@@ -328,31 +352,35 @@ def detail_card(item: dict, evening: bool = False) -> Text:
     elif start == date.today():
         meta.append((icon('today'), 'Today'))
     elif start:
-        meta.append((icon('upcoming'), f"{start:%A} {start.day} {start:%B %Y}"))
+        meta.append((icon('upcoming'), f"{start:%A} {start.day} {start:%B}"
+                     + (f" {start.year}" if start.year != date.today().year else '')))
     elif item.get('start') == 'Someday':
         meta.append((icon('someday'), 'Someday'))
     elif item.get('start') == 'Inbox':
         meta.append((icon('inbox'), 'Inbox'))
     if item.get('reminder_time'):
-        meta.append((Text('⏰', style=AMBER), f"Reminder {item['reminder_time']}"))
+        meta.append((Text(ICONS['reminder'], style=AMBER), f"Reminder at {item['reminder_time']}"))
+    deadline = _parse_day(item.get('deadline'))
     badge = deadline_badge(item.get('deadline'))
-    if badge:
-        meta.append((Text(ICONS['deadline'], style=RED), f"Deadline {item['deadline']} ({badge.plain[2:]})"))
-    where = where_cell(item).plain
+    if deadline and badge:
+        meta.append((Text(ICONS['deadline'], style=RED),
+                     f"Deadline {deadline:%a} {deadline.day} {deadline:%b} · {badge.plain[2:]}"))
+    where = where_text(item)
     if where:
         meta.append((icon('project'), where))
     if item.get('tags'):
-        meta.append((Text('#', style=MUTED), ', '.join(item['tags'])))
-    if item.get('created'):
-        meta.append((Text('+', style=FAINT), f"Created {_age(item['created'])}"))
+        meta.append((Text('#', style=MUTED), '  '.join(f"#{tag}" for tag in item['tags'])))
     if item.get('stop_date'):
-        meta.append((icon('logbook'), f"{str(item.get('status', 'done')).capitalize()} {str(item['stop_date'])[:16]}"))
+        verb = 'Canceled' if item.get('status') == 'canceled' else 'Completed'
+        meta.append((icon('logbook'), f"{verb} {_age(item['stop_date'])}"))
+    elif item.get('created'):
+        meta.append((Text('+', style=FAINT), f"Created {_age(item['created'])}"))
 
     if meta:
         t.append('\n')
         for ic, label in meta:
-            t.append('  ')
+            t.append(DETAIL_INDENT)
             t.append_text(ic)
             t.append(f"  {label}\n", style=MUTED)
-    t.append(f"\n  {item.get('uuid', '')}", style=FAINT)
+    t.rstrip()
     return t
