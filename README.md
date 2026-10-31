@@ -175,21 +175,36 @@ things open today           # reveal a list or item in the Things app
 things tui      # or: things-tui
 ```
 
-A sidebar of lists, projects and areas; the selected list's items; and the highlighted item's details.
+The layout follows the Things Mac app: the sidebar is grouped the same way (Inbox / Today, Upcoming, Anytime, Someday / Logbook, Trash / projects / areas with their projects nested beneath), Today ends with a **This Evening** section, Upcoming and the Logbook are grouped by date, Anytime and Someday by project, and projects by heading. A detail pane stands in for Things' inline to-do card.
 
-| Key | Action |
-|---|---|
-| `x` / `space` | Complete (or reopen a completed item) |
-| `c` | Cancel |
-| `a` | Add a to-do to the current list or project |
-| `s` / `d` | Set when / deadline |
-| `m` | Move to a project or area (by title) |
-| `t` | Add tags |
-| `e` | Rename |
-| `o` | Show in the Things app |
-| `/` | Search |
-| `r` | Refresh |
-| `q` | Quit |
+Keys follow [Things' Mac shortcuts](https://culturedcode.com/things/support/articles/2785159/) with ⌘ dropped and ⇧ kept. ⌃ and ⌥ are dropped too, because terminals can't send them reliably (⌃[ is the same as Escape, and ⌥ types special characters on macOS). Press `?` in the app for the full list.
+
+| Key | Action | Things |
+|---|---|---|
+| `n` / `space` | New to-do in the current list | ⌘N / Space |
+| `enter` | Open: enter a project or area, or edit a to-do's title | Return |
+| `k` / `K` | Complete (again to reopen) / cancel | ⌘K / ⌥⌘K |
+| `d` | Duplicate | ⌘D |
+| `M` | Move to a project or area | ⇧⌘M |
+| `s` | When… | ⌘S |
+| `t` `e` `r` `o` | Start Today / This Evening / Anytime / Someday | ⌘T ⌘E ⌘R ⌘O |
+| `]` `[` (`}` `{`) | Start date +/- 1 day (1 week) | ⌃] ⌃[ (⌃⇧] ⌃⇧[) |
+| `D` | Deadline | ⇧⌘D |
+| `.` `,` (`>` `<`) | Deadline +/- 1 day (1 week) | ⌃. ⌃, (⌃⇧. ⌃⇧,) |
+| `T` | Edit tags | ⇧⌘T |
+| `1`–`6` | Inbox, Today, Upcoming, Anytime, Someday, Logbook | ⌘1–⌘6 |
+| `f` | Find | ⌘F |
+| `O` | Go to a list, project or area by name | ⇧⌘O / Type Travel |
+| `L` | Show in parent list | ⌘L |
+| `left` / `right` | Back / enter project | ⌘← / ⌘→ |
+| `alt+up` / `alt+down` | Select first / last | ⌥↑ / ⌥↓ |
+| `/` | Show/hide sidebar | ⌘/ |
+| `ctrl+o` | Show the item in the Things app | — |
+| `ctrl+r` | Refresh | — |
+| `?` | Key help | — |
+| `q` | Quit | ⌘Q |
+
+Not available, because neither the URL scheme nor things.py supports them: reordering (⌘↑/↓), repeat schedules (⇧⌘R), new headings (⇧⌘N), moving completed items to the Logbook (⇧⌘Y) and tag filtering (⌃⌥ + tag shortcut). Unlike Things, typing letters doesn't start a search, because single letters are commands here; use `f` or `O`.
 
 ### How writes behave
 

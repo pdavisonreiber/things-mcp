@@ -79,11 +79,11 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
 
 4. **src/things_mcp/cli.py** - `things` CLI (Click). Items are referenced by number from the last listing (cached in `$XDG_CACHE_HOME/things-mcp/last-list.json`), full UUID, or UUID prefix. `--json` mirrors the MCP structured envelope.
 
-5. **src/things_mcp/tui.py** - `things tui` / `things-tui` (Textual, optional `tui` extra). Writes are fire-and-forget, so it updates rows optimistically, re-reads after `REFRESH_AFTER_WRITE`, and polls the database file's mtime to pick up external changes.
+5. **src/things_mcp/tui.py** - `things tui` / `things-tui` (Textual, optional `tui` extra). Mirrors the Things Mac app: sidebar order/nesting, list grouping (This Evening via `core.evening_uuids()`, which reads `TMTask.startBucket` because things.py doesn't), and key bindings taken from Things' Mac shortcuts with ⌘ dropped — keep new bindings consistent with that table in the README. Writes are fire-and-forget, so it updates rows optimistically, re-reads after `REFRESH_AFTER_WRITE`, and polls the database file's mtime to pick up external changes.
 
 6. **src/things_mcp/display.py** - Compact one-line rendering for CLI/TUI; uses `project_title`/`area_title`/`heading_title` from things.py rows so lists need no per-item lookups.
 
-7. **tests/** - Test suite (241 tests)
+7. **tests/** - Test suite (260 tests)
    - **conftest.py** - Pytest fixtures and mock data
    - **_helpers.py** - `tool_text()` reads the text channel from a `ToolResult` (or a plain-string result) so text assertions work across both return shapes
    - **test_url_scheme.py** - Tests for URL construction

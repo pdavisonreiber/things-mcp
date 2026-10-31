@@ -301,6 +301,28 @@ def recent(period: str) -> list:
             if (created := item_datetime(t, 'created')) is not None and created >= cutoff]
 
 
+def evening_uuids() -> set:
+    """UUIDs of items scheduled for This Evening.
+
+    things.py doesn't expose this: Things stores it in TMTask.startBucket
+    (1 = This Evening), so read that one column directly, read-only. Returns
+    an empty set if the database can't be read.
+    """
+    import sqlite3
+    path = database_path()
+    if not path:
+        return set()
+    try:
+        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        try:
+            rows = conn.execute("SELECT uuid FROM TMTask WHERE startBucket = 1").fetchall()
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return set()
+    return {r[0] for r in rows}
+
+
 def get(uuid: str):
     """Fetch any item (to-do, project, heading, area, tag) by UUID, or None."""
     try:
@@ -434,6 +456,15 @@ def update_items(uuids: Iterable[str], **changes) -> int:
     for pid in project_ids:
         update_project(pid, **changes)
     return len(todo_ids) + len(project_ids)
+
+
+def duplicate(uuid: str) -> None:
+    """Duplicate a to-do or project (URL scheme ``duplicate=true``)."""
+    item = get(uuid)
+    if not item or item.get('type') not in ('to-do', 'project'):
+        raise ThingsError("Only to-dos and projects can be duplicated")
+    command = 'update' if item['type'] == 'to-do' else 'update-project'
+    url_scheme.execute_url(url_scheme.construct_url(command, {'id': uuid, 'duplicate': True}))
 
 
 def add_area(title: str) -> str:

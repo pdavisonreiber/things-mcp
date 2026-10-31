@@ -97,3 +97,25 @@ def test_database_path_honours_thingsdb(monkeypatch, tmp_path):
     assert core.database_path() == str(db)
     monkeypatch.setenv('THINGSDB', str(tmp_path / 'missing.sqlite'))
     assert core.database_path() is None
+
+
+def test_duplicate_uses_update_with_duplicate_flag(mocker, sent, token):
+    mocker.patch('things.get', side_effect=_items(
+        t1={'uuid': 't1', 'type': 'to-do'}, p1={'uuid': 'p1', 'type': 'project'},
+        h1={'uuid': 'h1', 'type': 'heading'}))
+    core.duplicate('t1')
+    assert sent.call_args.args[0].startswith('things:///update?') and 'duplicate=true' in sent.call_args.args[0]
+    core.duplicate('p1')
+    assert sent.call_args.args[0].startswith('things:///update-project?')
+    with pytest.raises(ThingsError):
+        core.duplicate('h1')
+
+
+def test_evening_uuids_reads_start_bucket(monkeypatch, tmp_path):
+    from tests.fixtures import things_db
+    db = tmp_path / 'main.sqlite'
+    things_db.build(str(db))
+    monkeypatch.setenv('THINGSDB', str(db))
+    assert core.evening_uuids() == {'TODO-EVE'}
+    monkeypatch.setenv('THINGSDB', str(tmp_path / 'missing.sqlite'))
+    assert core.evening_uuids() == set()

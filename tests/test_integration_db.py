@@ -39,7 +39,7 @@ def titles(output):
 
 
 def test_today_excludes_someday_project_tasks():
-    assert titles(things('today')) == ['Write brief', 'Book venue', 'Buy milk']
+    assert titles(things('today')) == ['Write brief', 'Book venue', 'Buy milk', 'Call mum']
 
 
 def test_upcoming_and_someday():
@@ -65,7 +65,7 @@ def test_tag_usage_and_recent():
 
 def test_json_items_are_raw_things_rows():
     data = json.loads(things('today', '--json'))
-    assert data['total'] == 3
+    assert data['total'] == 4
     assert data['items'][0]['project_title'] == 'Launch'
     assert [c['title'] for c in data['items'][0]['checklist']] == ['Outline', 'Draft']
 
@@ -107,10 +107,14 @@ async def test_tui_loads_sidebar_and_today(database):
     async with app.run_test() as pilot:
         await pilot.pause()
         table = app.query_one('#items', DataTable)
+        # Today, then a "This Evening" group read from startBucket
         assert [str(table.get_row_at(i)[1]) for i in range(table.row_count)] == \
-            ['Write brief', 'Book venue', 'Buy milk']
+            ['Write brief', 'Book venue', 'Buy milk', 'This Evening', 'Call mum']
         sidebar = app.query_one('#sidebar', OptionList)
         ids = {sidebar.get_option_at_index(i).id for i in range(sidebar.option_count)}
         assert {'project:PROJ-LAUNCH', 'area:AREA-HOME'} <= ids
+        # Launch (in Work) is listed right after its area, indented
+        order = [sidebar.get_option_at_index(i).id for i in range(sidebar.option_count)]
+        assert order.index('project:PROJ-LAUNCH') == order.index('area:AREA-WORK') + 1
         app.select_source('area:AREA-HOME')
         assert [str(table.get_row_at(i)[1]) for i in range(table.row_count)] == ['Buy milk']

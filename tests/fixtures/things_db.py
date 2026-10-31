@@ -59,7 +59,7 @@ def build(path, token='test-token') -> dict:
 
     def task(uuid, title, *, type=TODO, status=INCOMPLETE, start=ANYTIME, start_date=None,
              deadline=None, area=None, project=None, heading=None, stopped=None,
-             created=None, index=0, today_index=None, trashed=0):
+             created=None, index=0, today_index=None, trashed=0, evening=False):
         db.execute(
             """INSERT INTO TMTask (uuid, type, title, notes, status, start, startDate, deadline,
                stopDate, creationDate, userModificationDate, "index", todayIndex, area, project,
@@ -70,6 +70,8 @@ def build(path, token='test-token') -> dict:
              ts(stopped) if stopped else None,
              ts(created or now - timedelta(days=30)), ts(now - timedelta(days=1)),
              index, today_index, area, project, heading, trashed))
+        if evening:  # This Evening lives in startBucket, which things.py doesn't read
+            db.execute('UPDATE TMTask SET startBucket = 1 WHERE uuid = ?', (uuid,))
 
     task('PROJ-LAUNCH', 'Launch', type=PROJECT, area='AREA-WORK')
     task('PROJ-DREAM', 'Dream project', type=PROJECT, start=SOMEDAY)
@@ -79,6 +81,7 @@ def build(path, token='test-token') -> dict:
          deadline=today + timedelta(days=2), today_index=1, index=1)
     task('TODO-HEAD', 'Book venue', heading='HEAD-PREP', start_date=today, today_index=2, index=2)
     task('TODO-MILK', 'Buy milk', area='AREA-HOME', start_date=today, today_index=3)
+    task('TODO-EVE', 'Call mum', start_date=today, today_index=4, evening=True)
     # Future-dated to-dos sit in start=Someday with a startDate (that's Upcoming).
     task('TODO-LATER', 'Renew passport', start=SOMEDAY, start_date=today + timedelta(days=10))
     task('TODO-DREAM', 'Learn Japanese', project='PROJ-DREAM')
