@@ -307,3 +307,13 @@ async def test_cursor_skips_spacer_and_heading_rows(core):
         await pilot.press('up')
         await pilot.pause()
         assert app.selected_uuid() == 't2'
+
+
+@pytest.mark.parametrize('name', ['gradient', 'prompt', 'dos', 'stripes', 'manpage', 'c64', 'badge', 'checkbox', 'hex'])
+def test_wordmarks_render_and_are_selectable(monkeypatch, name):
+    from things_mcp import tui_style
+    monkeypatch.setenv('THINGS_TUI_WORDMARK', name)
+    assert tui_style.title_bar().plain == tui_style.WORDMARKS[name]().plain
+    assert tui_style.title_bar().plain.strip()
+    monkeypatch.setenv('THINGS_TUI_WORDMARK', 'nonsense')
+    assert tui_style.title_bar().plain == tui_style.WORDMARKS['gradient']().plain

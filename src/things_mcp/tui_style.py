@@ -94,13 +94,66 @@ def icon(name: str, colour: Optional[str] = None) -> Text:
 # Retro bits
 # ---------------------------------------------------------------------------
 
-def title_bar() -> Text:
-    """Top bar (left side): a block-gradient wordmark."""
+def _wm_gradient() -> Text:
+    return Text.assemble(('▓▒░ ', AMBER), ('T H I N G S', f'bold {AMBER}'), (' ░▒▓', AMBER))
+
+
+def _wm_prompt() -> Text:
+    return Text.assemble(('~/', MUTED), ('things', f'bold {AMBER}'), (' ❯ ', LIST_COLOURS['logbook']),
+                         ('█', AMBER))
+
+
+def _wm_dos() -> Text:
+    return Text.assemble(('C:\\', MUTED), ('THINGS', f'bold {AMBER}'), ('>', MUTED), ('_', f'bold {AMBER}'))
+
+
+def _wm_stripes() -> Text:
+    # The six stripes of the 1977 Apple logo, then the name.
     t = Text()
-    t.append('▓▒░ ', style=AMBER)
-    t.append('T H I N G S', style=f'bold {AMBER}')
-    t.append(' ░▒▓', style=AMBER)
+    for colour in ('#61bb46', '#fdb827', '#f5821f', '#e03a3e', '#963d97', '#009ddc'):
+        t.append('▌', style=colour)
+    t.append(' things', style=f'bold {FG}')
     return t
+
+
+def _wm_manpage() -> Text:
+    return Text.assemble(('THINGS(1)', f'bold {AMBER}'), ('   Getting Things Done Manual', MUTED))
+
+
+def _wm_c64() -> Text:
+    c64 = '#a5a5ff'
+    return Text.assemble(('LOAD "THINGS",8,1', f'bold {c64}'), ('  ', ''), ('READY.', c64), (' █', c64))
+
+
+def _wm_badge() -> Text:
+    return Text.assemble((' THINGS ', f'bold {BG} on {AMBER}'), (' 3 ', f'bold {AMBER} on {RULE}'))
+
+
+def _wm_checkbox() -> Text:
+    return Text.assemble(('[', MUTED), ('x', f'bold {AMBER}'), (']', MUTED), (' things', f'bold {FG}'))
+
+
+def _wm_hex() -> Text:
+    return Text.assemble(('0x', MUTED), ('7H1N65', f'bold {AMBER}'), ('  // things', FAINT))
+
+
+WORDMARKS = {
+    'gradient': _wm_gradient,
+    'prompt': _wm_prompt,
+    'dos': _wm_dos,
+    'stripes': _wm_stripes,
+    'manpage': _wm_manpage,
+    'c64': _wm_c64,
+    'badge': _wm_badge,
+    'checkbox': _wm_checkbox,
+    'hex': _wm_hex,
+}
+
+
+def title_bar() -> Text:
+    """Top bar (left side): the wordmark. Pick one with THINGS_TUI_WORDMARK."""
+    name = os.environ.get('THINGS_TUI_WORDMARK', 'gradient').lower()
+    return WORDMARKS.get(name, _wm_gradient)()
 
 
 def title_bar_right() -> Text:
