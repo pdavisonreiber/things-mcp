@@ -215,14 +215,14 @@ def where_cell(item: dict) -> Text:
 
 def group_heading(label: str, list_key: str) -> tuple[Text, Text]:
     """(icon cell, title cell) for a group heading row in the item table."""
-    # Subheadings: bold, underlined, in the list's colour (Things draws a rule
-    # under its headings). The table adds a blank row above each one.
+    # Subheadings: bold, in the list's colour, with an icon. The table adds a
+    # blank row above each one.
     if label == 'This Evening':
-        return icon('evening'), Text(label, style=f"bold underline {LIST_COLOURS['evening']}")
+        return icon('evening'), Text(label, style=f"bold {LIST_COLOURS['evening']}")
     colour = LIST_COLOURS.get(list_key, LIST_COLOURS['project'])
     if list_key in ('upcoming', 'logbook'):
-        return Text('▍', style=colour), Text(label, style=f'bold underline {colour}')
-    return icon('heading', colour), Text(label, style=f'bold underline {colour}')
+        return Text('▍', style=colour), Text(label, style=f'bold {colour}')
+    return icon('heading', colour), Text(label, style=f'bold {colour}')
 
 
 def list_banner(label: str, list_key: str, count: int) -> Text:
