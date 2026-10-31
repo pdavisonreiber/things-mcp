@@ -178,44 +178,133 @@ class CommandLine(Horizontal):
         field.disabled = True
 
 
-# The key list shown by ?, grouped like Things' shortcut page.
+# The key list shown by ?, grouped like Things' shortcut page, in two columns.
 KEY_HELP = [
-    ('Create', [('n  space', 'New to-do', '⌘N  Space')]),
-    ('Edit', [('enter', 'Open / rename', 'Return'), ('k', 'Complete', '⌘K'), ('K', 'Cancel', '⌥⌘K'),
-              ('d', 'Duplicate', '⌘D'), ('T', 'Edit tags', '⇧⌘T'), ('M', 'Move', '⇧⌘M')]),
-    ('Dates', [('s', 'When…', '⌘S'), ('t e r o', 'Today / Evening / Anytime / Someday', '⌘T ⌘E ⌘R ⌘O'),
-               ('] [', 'Start date ±1 day', '⌃] ⌃['), ('} {', 'Start date ±1 week', '⌃⇧] ⌃⇧['),
-               ('D', 'Deadline…', '⇧⌘D'), ('. ,', 'Deadline ±1 day', '⌃. ⌃,'),
-               ('> <', 'Deadline ±1 week', '⌃⇧. ⌃⇧,')]),
-    ('Navigate', [('1–6', 'Inbox … Logbook', '⌘1–⌘6'), ('f', 'Find', '⌘F'), ('O', 'Go to list…', '⇧⌘O'),
-                  ('L', 'Show in parent list', '⌘L'), ('← →', 'Back / enter project', '⌘← ⌘→'),
-                  ('/', 'Show/hide sidebar', '⌘/')]),
-    ('Other', [('ctrl+o', 'Show in Things', ''), ('ctrl+r', 'Refresh', ''), ('?', 'Keys', ''),
-               ('q', 'Quit', '⌘Q')]),
+    [  # left column
+        ('Create', [('n  space', 'New to-do', '⌘N  Space')]),
+        ('Edit', [('enter', 'Open / rename', 'Return'), ('k', 'Complete', '⌘K'), ('K', 'Cancel', '⌥⌘K'),
+                  ('d', 'Duplicate', '⌘D'), ('T', 'Edit tags', '⇧⌘T'), ('M', 'Move…', '⇧⌘M')]),
+        ('Navigate', [('1–6', 'Inbox … Logbook', '⌘1–⌘6'), ('f', 'Find', '⌘F'),
+                      ('O', 'Go to list…', '⇧⌘O'), ('L', 'Show in parent list', '⌘L'),
+                      ('← →', 'Back / enter project', '⌘← ⌘→'), ('/', 'Show/hide sidebar', '⌘/')]),
+    ],
+    [  # right column
+        ('Dates', [('s', 'When…', '⌘S'), ('t', 'Start Today', '⌘T'), ('e', 'Start This Evening', '⌘E'),
+                   ('r', 'Start Anytime', '⌘R'), ('o', 'Start Someday', '⌘O'),
+                   ('] [', 'Start date ±1 day', '⌃] ⌃['), ('} {', 'Start date ±1 week', '⌃⇧] ⌃⇧['),
+                   ('D', 'Deadline…', '⇧⌘D'), ('. ,', 'Deadline ±1 day', '⌃. ⌃,'),
+                   ('> <', 'Deadline ±1 week', '⌃⇧. ⌃⇧,')]),
+        ('Other', [('i', 'Details pop-up', ''), ('I', 'Show/hide details pane', ''),
+                   ('ctrl+o', 'Show in Things', ''), ('ctrl+r', 'Refresh', ''), ('?', 'Keys', ''),
+                   ('q', 'Quit', '⌘Q')]),
+    ],
 ]
 
 
-class HelpScreen(ModalScreen[None]):
-    """A centred pop-up listing the keys. Any of ? / Escape / q closes it."""
+def _key_table(sections: list):
+    from rich.table import Table
+    table = Table(show_header=False, box=None, padding=(0, 1), expand=False)
+    table.add_column(style=f'bold {style.AMBER}', no_wrap=True, justify='right')
+    table.add_column(style=style.FG, no_wrap=True)
+    table.add_column(style=style.FAINT, no_wrap=True)
+    for n, (section, rows) in enumerate(sections):
+        if n:
+            table.add_row('', '', '')
+        table.add_row('', Text(section.upper(), style=f'bold {style.MUTED}'), '')
+        for keys, action, things_keys in rows:
+            table.add_row(keys, action, things_keys)
+    return table
 
-    BINDINGS = [Binding('escape,question_mark,q', 'close', 'Close', show=False)]
 
-    def compose(self) -> ComposeResult:
-        from rich.table import Table
-        table = Table(show_header=False, box=None, padding=(0, 2), expand=False)
-        table.add_column(style=f'bold {style.AMBER}', no_wrap=True, justify='right')
-        table.add_column(style=style.FG, no_wrap=True)
-        table.add_column(style=style.FAINT, no_wrap=True)
-        for n, (section, rows) in enumerate(KEY_HELP):
-            if n:
-                table.add_row('', '', '')
-            table.add_row('', Text(section.upper(), style=f'bold {style.MUTED}'), Text('THINGS', style=style.FAINT) if n == 0 else '')
-            for keys, action, things_keys in rows:
-                table.add_row(keys, action, things_keys)
-        with Vertical(id='help'):
-            yield Static(table)
+class PopUp(ModalScreen[None]):
+    """Base for centred pop-ups; Escape, q or the opening key closes them."""
+
+    BINDINGS = [Binding('escape,q', 'close', 'Close', show=False)]
 
     def action_close(self) -> None:
+        self.dismiss(None)
+
+
+class HelpScreen(PopUp):
+    """The keys, in two columns, with the matching Things shortcut beside each."""
+
+    BINDINGS = [Binding('question_mark', 'close', 'Close', show=False)]
+
+    def compose(self) -> ComposeResult:
+        with Horizontal(id='help', classes='popup'):
+            for column in KEY_HELP:
+                yield Static(_key_table(column), classes='help-column')
+
+
+class DetailScreen(PopUp):
+    """The highlighted item's details as a pop-up (i)."""
+
+    BINDINGS = [Binding('i,enter', 'close', 'Close', show=False)]
+
+    def __init__(self, renderable):
+        super().__init__()
+        self.renderable = renderable
+
+    def compose(self) -> ComposeResult:
+        with VerticalScroll(id='detail-popup', classes='popup'):
+            yield Static(self.renderable)
+
+
+class MoveInput(Input):
+    """Filter box for the Move pop-up; arrow keys move through the list below."""
+
+    BINDINGS = [Binding('down', 'screen.cursor(1)', show=False), Binding('up', 'screen.cursor(-1)', show=False)]
+
+
+class MoveScreen(ModalScreen[Optional[str]]):
+    """Pick a destination project or area, like Things' Move pop-over (⇧⌘M).
+    Type to filter; Enter moves; Escape cancels. Returns the chosen UUID."""
+
+    BINDINGS = [Binding('escape', 'cancel', 'Cancel', show=False)]
+
+    def __init__(self, title: str, destinations: list):
+        super().__init__()
+        self.title_text = title
+        self.destinations = destinations   # [(uuid, label Text, search text)]
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id='move', classes='popup'):
+            yield Static(Text.assemble(('Move ', style.MUTED), (self.title_text, f'bold {style.FG}'),
+                                       (' to…', style.MUTED)), id='move-title')
+            yield MoveInput(placeholder='Type to filter', id='move-filter')
+            yield OptionList(id='move-list')
+
+    def on_mount(self) -> None:
+        self._fill('')
+        self.query_one(MoveInput).focus()
+
+    def _fill(self, needle: str) -> None:
+        options = self.query_one('#move-list', OptionList)
+        options.clear_options()
+        needle = needle.lower()
+        options.add_options([Option(label, id=uuid) for uuid, label, text in self.destinations
+                             if needle in text.lower()])
+        if options.option_count:
+            options.highlighted = 0
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        self._fill(event.value)
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        options = self.query_one('#move-list', OptionList)
+        if options.highlighted is not None:
+            self.dismiss(options.get_option_at_index(options.highlighted).id)
+
+    def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
+        self.dismiss(event.option.id)
+
+    def action_cursor(self, step: int) -> None:
+        options = self.query_one('#move-list', OptionList)
+        if options.option_count:
+            current = options.highlighted or 0
+            options.highlighted = max(0, min(options.option_count - 1, current + step))
+
+    def action_cancel(self) -> None:
         self.dismiss(None)
 
 
@@ -280,8 +369,21 @@ class ThingsApp(App):
     #command-input {{ width: 1fr; height: 1; background: {style.BG}; border: none; padding: 0; }}
     #command-input:disabled {{ background: {style.BG}; opacity: 100%; }}
     #command-input:focus {{ border: none; background-tint: {style.BG} 0%; }}
-    HelpScreen {{ align: center middle; background: {style.BG} 70%; }}
-    #help {{ width: 72; height: auto; padding: 1 3; background: {style.SIDEBAR}; }}
+    HelpScreen, DetailScreen, MoveScreen {{ align: center middle; background: {style.BG} 70%; }}
+    .popup {{ background: {style.SIDEBAR}; padding: 1 3; }}
+    #help {{ width: 96; height: auto; }}
+    .help-column {{ width: 44; }}  /* fixed: a Rich table has no intrinsic width */
+    #detail-popup {{ width: 80; height: auto; max-height: 80%; }}
+    #move {{ width: 60; height: auto; max-height: 80%; }}
+    #move-title {{ height: auto; margin-bottom: 1; }}
+    #move-filter {{ height: 1; border: none; padding: 0; background: {style.SIDEBAR}; }}
+    #move-filter:focus {{ border: none; background-tint: {style.SIDEBAR} 0%; }}
+    #move-list {{
+        height: auto; max-height: 20; margin-top: 1; border: none; padding: 0;
+        background: {style.SIDEBAR}; scrollbar-size-vertical: 1;
+    }}
+    #move-list > .option-list--option-highlighted {{ background: {style.BLUE} 45%; text-style: none; }}
+    #move-list:focus {{ background-tint: {style.SIDEBAR} 0%; }}
     #items:focus, #detail-pane:focus {{ background-tint: {style.BG} 0%; }}
     #sidebar:focus {{ background-tint: {style.SIDEBAR} 0%; }}
     #items > .datatable--even-row, #items > .datatable--odd-row {{ background: {style.BG}; }}
@@ -317,6 +419,8 @@ class ThingsApp(App):
         Binding('T', 'edit_tags', 'Tags'),
         # Windows
         Binding('slash', 'toggle_sidebar', 'Show/hide sidebar (⌘/)', show=False),
+        Binding('i', 'details', 'Details pop-up', show=False),
+        Binding('I', 'toggle_details', 'Show/hide details pane', show=False),
         # Search & navigate
         Binding('f', 'find', 'Find'),
         Binding('O', 'jump', 'Go to list… (⇧⌘O)', show=False),
@@ -806,11 +910,49 @@ class ThingsApp(App):
             self._change(item, f"Deadline {new}", {'deadline': new}, deadline=new)
 
     def action_move(self) -> None:
+        """Pick a project or area from a pop-up list (Things: ⇧⌘M)."""
         item = self._editable_item(todos_only=True)
-        if item:
-            self._ask(f"Move '{item['title']}' to which project or area?",
-                      lambda dest: self._change(item, f"Moved to {dest}", list=dest),
-                      placeholder='Project or area title')
+        if item is None:
+            return
+        try:
+            projects, areas = core.projects(), core.areas()
+        except Exception as e:
+            self.notify(f"Couldn't read Things: {e}", severity='error')
+            return
+        area_titles = {a['uuid']: a['title'] for a in areas}
+        destinations, names = [], {}
+        for a in areas:
+            destinations.append((a['uuid'], Text.assemble(style.icon('area'), '  ', (a['title'], f'bold {style.FG}')),
+                                 a['title']))
+            names[a['uuid']] = a['title']
+        for p in projects:
+            where = area_titles.get(p.get('area'), '')
+            label = Text.assemble(style.icon('project'), '  ', (p['title'], style.FG))
+            if where:
+                label.append(f"  {where}", style=style.FAINT)
+            destinations.append((p['uuid'], label, f"{p['title']} {where}"))
+            names[p['uuid']] = p['title']
+
+        def moved(uuid: Optional[str]) -> None:
+            if uuid:
+                self._change(item, f"Moved to {names.get(uuid, 'list')}", list_id=uuid)
+        self.push_screen(MoveScreen(item.get('title') or '', destinations), moved)
+
+    def action_details(self) -> None:
+        """Show the highlighted item's details as a pop-up."""
+        item = self.selected_item()
+        if item is None:
+            return
+        if item.get('type') in ('to-do', 'project'):
+            card = style.detail_card(item, evening=item['uuid'] in self.evening)
+        else:
+            card = Text(display.detail(item))
+        self.push_screen(DetailScreen(card))
+
+    def action_toggle_details(self) -> None:
+        """Hide the docked details pane to give the list the full height, or bring it back."""
+        pane = self.query_one('#detail-pane')
+        pane.display = not pane.display
 
     def action_edit_tags(self) -> None:
         item = self._editable_item()

@@ -175,13 +175,46 @@ async def test_shift_t_edits_tags_prefilled_and_can_clear(core):
         core.update_items.assert_called_once_with(['t1'], tags=[])
 
 
-async def test_shift_m_moves(core):
+async def test_shift_m_moves_via_picker(core):
+    from things_mcp.tui import MoveScreen
     app = ThingsApp()
     async with app.run_test() as pilot:
         await _start(app, pilot)
         await pilot.press('M')
-        await _answer(app, pilot, 'Errands')
-        core.update_items.assert_called_once_with(['t1'], list='Errands')
+        await pilot.pause()
+        assert isinstance(app.screen, MoveScreen)
+        await pilot.press('l', 'a', 'u')   # filter to "Launch"
+        await pilot.press('enter')
+        await pilot.pause()
+        core.update_items.assert_called_once_with(['t1'], list_id='p1')
+
+
+async def test_move_picker_escape_cancels(core):
+    app = ThingsApp()
+    async with app.run_test() as pilot:
+        await _start(app, pilot)
+        await pilot.press('M')
+        await pilot.pause()
+        await pilot.press('escape')
+        await pilot.pause()
+        core.update_items.assert_not_called()
+
+
+async def test_i_opens_details_popup_and_I_hides_pane(core):
+    from things_mcp.tui import DetailScreen
+    app = ThingsApp()
+    async with app.run_test() as pilot:
+        await _start(app, pilot)
+        await pilot.press('i')
+        await pilot.pause()
+        assert isinstance(app.screen, DetailScreen)
+        await pilot.press('escape')
+        await pilot.pause()
+        assert not isinstance(app.screen, DetailScreen)
+        await pilot.press('I')
+        assert not app.query_one('#detail-pane').display
+        await pilot.press('I')
+        assert app.query_one('#detail-pane').display
 
 
 async def test_d_duplicates(core):
