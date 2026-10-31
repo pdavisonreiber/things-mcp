@@ -156,38 +156,69 @@ def title_bar() -> Text:
     return WORDMARKS.get(name, _wm_gradient)()
 
 
-# A compact 2-line block font: each letter is 1-3 columns of half blocks.
-LOGO_LETTERS = [
-    ('▀█▀', ' █ '),   # T
-    ('█ █', '█▀█'),   # H
-    ('█', '█'),       # I
-    ('█▄ █', '█ ▀█'), # N
-    ('█▀▀', '█▄█'),   # G
-    ('█▀', '▄█'),     # S
-]
+# ---------------------------------------------------------------------------
+# Sidebar logo: "THINGS" in a few 3-line fonts
+# ---------------------------------------------------------------------------
+
+def _from_pixels(*letters: list) -> list:
+    """Turn 5-row pixel bitmaps ('#' = on) into 3 rows of half blocks."""
+    glyphs = []
+    for bitmap in letters:
+        rows = bitmap + ['.' * len(bitmap[0])]          # pad to 6 pixel rows
+        glyph = []
+        for top, bottom in zip(rows[0::2], rows[1::2]):
+            glyph.append(''.join(
+                '█' if t == '#' and b == '#' else '▀' if t == '#' else '▄' if b == '#' else ' '
+                for t, b in zip(top, bottom)))
+        glyphs.append(glyph)
+    return glyphs
+
+
+# Each font: (glyphs for T H I N G S, each a list of 3 rows; gap between letters)
+LOGO_FONTS = {
+    # Box drawing, double lines (after FIGlet's "Calvin S").
+    'box': ([['╔╦╗', ' ║ ', ' ╩ '], ['╦ ╦', '╠═╣', '╩ ╩'], ['╦', '║', '╩'],
+             ['╔╗╔', '║║║', '╝╚╝'], ['╔═╗', '║ ╦', '╚═╝'], ['╔═╗', '╚═╗', '╚═╝']], 0),
+    # Box drawing, heavy lines (after FIGlet's "Future").
+    'heavy': ([['┏┳┓', ' ┃ ', ' ╹ '], ['╻ ╻', '┣━┫', '╹ ╹'], ['╻', '┃', '╹'],
+               ['┏┓╻', '┃┗┫', '╹ ╹'], ['┏━╸', '┃╺┓', '┗━┛'], ['┏━┓', '┗━┓', '┗━┛']], 0),
+    # A 5-pixel-tall bitmap font drawn with half blocks.
+    'pixel': (_from_pixels(
+        ['###', '.#.', '.#.', '.#.', '.#.'],
+        ['#.#', '#.#', '###', '#.#', '#.#'],
+        ['###', '.#.', '.#.', '.#.', '###'],
+        ['#..#', '##.#', '#.##', '#..#', '#..#'],
+        ['.###', '#...', '#.##', '#..#', '.###'],
+        ['.##', '#..', '.#.', '..#', '##.'],
+    ), 1),
+    # The 2-line block font with a shade underneath.
+    'shade': ([['▀█▀', ' █ ', '░░░'], ['█ █', '█▀█', '░░░'], ['█', '█', '░'],
+               ['█▄ █', '█ ▀█', '░░░░'], ['█▀▀', '█▄█', '░░░'], ['█▀', '▄█', '░░']], 1),
+}
+
 STRIPE_COLOURS = ('#61bb46', '#fdb827', '#f5821f', '#e03a3e', '#963d97', '#009ddc')
 
 
-def logo(colours: Optional[tuple] = None, dim: bool = False) -> Text:
-    """'THINGS' in the 2-line block font. Amber by default; pass colours
-    (one per letter) for e.g. the Apple stripes. ``dim`` for empty states."""
-    if colours is None:
-        mode = os.environ.get('THINGS_TUI_LOGO', 'amber').lower()
-        colours = STRIPE_COLOURS if mode == 'stripes' else (AMBER,) * len(LOGO_LETTERS)
-    t = Text(justify='left')
-    for row in (0, 1):
-        for n, (letter, colour) in enumerate(zip(LOGO_LETTERS, colours)):
-            if n:
-                t.append(' ')
-            t.append(letter[row], style=RULE if dim else f'bold {colour}')
-        if row == 0:
+def logo(font: Optional[str] = None, colours: Optional[str] = None) -> Text:
+    """'THINGS' in a 3-line font. Font from THINGS_TUI_LOGO (box, heavy, pixel,
+    shade); amber, or the Apple stripes with THINGS_TUI_LOGO_COLOURS=stripes."""
+    font = font or os.environ.get('THINGS_TUI_LOGO', 'pixel').lower()
+    glyphs, gap = LOGO_FONTS.get(font, LOGO_FONTS['pixel'])
+    mode = colours or os.environ.get('THINGS_TUI_LOGO_COLOURS', 'amber').lower()
+    palette = STRIPE_COLOURS if mode == 'stripes' else (AMBER,) * len(glyphs)
+    t = Text()
+    for row in range(3):
+        for n, (glyph, colour) in enumerate(zip(glyphs, palette)):
+            if n and gap:
+                t.append(' ' * gap)
+            text = glyph[row]
+            if font == 'shade' and row == 2:
+                t.append(text, style='#7a5a20')
+            else:
+                t.append(text, style=f'bold {colour}')
+        if row < 2:
             t.append('\n')
     return t
-
-
-def clock_line() -> Text:
-    now = datetime.now()
-    return Text(f"{now:%a} {now.day} {now:%b}".upper() + f"  ·  {now:%H:%M}", style=FAINT)
 
 
 EMPTY_MESSAGES = {
@@ -198,11 +229,7 @@ EMPTY_MESSAGES = {
 
 
 def empty_state(list_key: str) -> Text:
-    t = logo(dim=True)
-    t.append('\n\n')
-    t.append(EMPTY_MESSAGES.get(list_key, 'Nothing here.'), style=FAINT)
-    t.justify = 'center'
-    return t
+    return Text(EMPTY_MESSAGES.get(list_key, 'Nothing here.'), style=FAINT, justify='center')
 
 
 def title_bar_right() -> Text:

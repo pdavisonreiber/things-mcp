@@ -199,7 +199,6 @@ class ThingsApp(App):
     Screen {{ background: {style.BG}; }}
     #sidebar-pane {{ width: 34; height: 1fr; border-right: vkey {style.RULE}; }}
     #logo {{ height: auto; padding: 1 2 0 2; }}
-    #clock {{ height: auto; padding: 0 2 0 2; }}
     #empty {{ height: 2fr; content-align: center middle; display: none; }}
     #sidebar {{
         height: 1fr; background: {style.BG}; border: none; padding: 1 0;
@@ -298,7 +297,6 @@ class ThingsApp(App):
         with Horizontal():
             with Vertical(id='sidebar-pane'):
                 yield Static(style.logo(), id='logo')
-                yield Static(id='clock')
                 yield OptionList(id='sidebar')
             with Vertical(id='main'):
                 yield Static(id='banner')
@@ -321,12 +319,6 @@ class ThingsApp(App):
         self.select_source('today')
         if self.db_path:
             self.set_interval(DB_POLL_INTERVAL, self.check_database)
-        self._update_title()
-        self.set_interval(30, self._update_title)
-
-    def _update_title(self) -> None:
-        """Refresh the clock under the sidebar logo."""
-        self.query_one('#clock', Static).update(style.clock_line())
 
     def _colour_key(self) -> str:
         """The palette key for the current list (projects/areas share one)."""
@@ -417,7 +409,6 @@ class ThingsApp(App):
             self.history.append(self.current.key)
         self.current = source
         self.sub_title = source.label
-        self._update_title()
         self._highlight_sidebar(key)
         self.load_items()
 
@@ -625,7 +616,6 @@ class ThingsApp(App):
                 self.history.append(self.current.key)
             self.current = source
             self.sub_title = source.label
-            self._update_title()
             self.query_one('#sidebar', OptionList).highlighted = None
             self.load_items()
             self.query_one('#items', DataTable).focus()
