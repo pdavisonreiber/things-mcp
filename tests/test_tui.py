@@ -7,7 +7,7 @@ pytest.importorskip('textual')
 
 from textual.widgets import DataTable, Input, OptionList  # noqa: E402
 
-from things_mcp.tui import HEADER_PREFIX, PromptScreen, ThingsApp  # noqa: E402
+from things_mcp.tui import PromptScreen, ThingsApp  # noqa: E402
 from things_mcp.tui_style import ICONS  # noqa: E402
 
 TODAY = [
@@ -41,7 +41,7 @@ def core(mocker):
 
 def _titles(app):
     table = app.query_one('#items', DataTable)
-    return [str(table.get_row_at(i)[1]) for i in range(table.row_count)]
+    return [t for t in (str(table.get_row_at(i)[1]) for i in range(table.row_count)) if t]
 
 
 def _mark(app, uuid):
@@ -198,8 +198,8 @@ async def test_project_groups_by_heading_and_adds_into_project(core):
         app.select_source('project:p1')
         core.todos.assert_called_with('p1')
         assert _titles(app) == ['Prep', 'Write report']
-        table = app.query_one('#items', DataTable)
-        assert table.coordinate_to_cell_key(table.cursor_coordinate)[0].value.startswith(HEADER_PREFIX)
+        await pilot.pause()
+        assert app.selected_uuid() == 't2'  # cursor skips the heading row
         await pilot.press('n')
         await _answer(app, pilot, 'Draft plan')
         core.add_todo.assert_called_once_with('Draft plan', list_id='p1')
@@ -295,3 +295,15 @@ async def test_question_mark_toggles_key_help(core):
         await pilot.press('question_mark')
         await pilot.pause()
         assert not app.screen.query('HelpPanel')
+
+
+async def test_cursor_skips_spacer_and_heading_rows(core):
+    app = ThingsApp()
+    async with app.run_test() as pilot:
+        await _start(app, pilot)
+        await pilot.press('down', 'down')  # t1 -> t2 -> (gap, This Evening) -> t3
+        await pilot.pause()
+        assert app.selected_uuid() == 't3'
+        await pilot.press('up')
+        await pilot.pause()
+        assert app.selected_uuid() == 't2'

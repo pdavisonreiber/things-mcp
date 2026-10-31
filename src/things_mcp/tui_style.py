@@ -45,7 +45,6 @@ LIST_COLOURS = {
     'search': MUTED,
 }
 
-TAG_BG = '#3a3b40'
 TAG_FG = '#d1d1d6'
 
 THEME = Theme(
@@ -95,15 +94,12 @@ def icon(name: str, colour: Optional[str] = None) -> Text:
 # Retro bits
 # ---------------------------------------------------------------------------
 
-def title_bar(list_label: str, list_key: str) -> Text:
-    """Top bar (left side): a block-gradient wordmark and the current list."""
-    colour = LIST_COLOURS.get(list_key, BLUE)
+def title_bar() -> Text:
+    """Top bar (left side): a block-gradient wordmark."""
     t = Text()
     t.append('▓▒░ ', style=AMBER)
     t.append('T H I N G S', style=f'bold {AMBER}')
     t.append(' ░▒▓', style=AMBER)
-    t.append('   ')
-    t.append(list_label.upper(), style=f'bold {colour}')
     return t
 
 
@@ -207,12 +203,8 @@ def info_cell(item: dict, list_key: str, evening: bool = False) -> Text:
     if item.get('notes'):
         parts.append(Text(ICONS['notes'], style=FAINT))
 
-    tags = Text()
-    for tag in item.get('tags') or []:
-        tags.append(f" {tag} ", style=f'{TAG_FG} on {TAG_BG}')
-        tags.append(' ')
-    if tags:
-        parts.append(tags)
+    if item.get('tags'):
+        parts.append(Text(' '.join(f"#{tag}" for tag in item['tags']), style=TAG_FG))
     return Text('  ').join(parts)
 
 
@@ -223,12 +215,14 @@ def where_cell(item: dict) -> Text:
 
 def group_heading(label: str, list_key: str) -> tuple[Text, Text]:
     """(icon cell, title cell) for a group heading row in the item table."""
+    # Subheadings: bold, underlined, in the list's colour (Things draws a rule
+    # under its headings). The table adds a blank row above each one.
     if label == 'This Evening':
-        return icon('evening'), Text(label, style=f"bold {LIST_COLOURS['evening']}")
+        return icon('evening'), Text(label, style=f"bold underline {LIST_COLOURS['evening']}")
     colour = LIST_COLOURS.get(list_key, LIST_COLOURS['project'])
     if list_key in ('upcoming', 'logbook'):
-        return Text('▍', style=colour), Text(label, style=f'bold {colour}')
-    return icon('heading', colour), Text(label, style=f'bold {colour}')
+        return Text('▍', style=colour), Text(label, style=f'bold underline {colour}')
+    return icon('heading', colour), Text(label, style=f'bold underline {colour}')
 
 
 def list_banner(label: str, list_key: str, count: int) -> Text:
@@ -243,11 +237,10 @@ def list_banner(label: str, list_key: str, count: int) -> Text:
     return t
 
 
-def sidebar_entry(label: str, key: str, count: Optional[int] = None, indent: bool = False,
-                  width: int = 28) -> Text:
+def sidebar_entry(label: str, key: str, count: Optional[int] = None, width: int = 28) -> Text:
     kind = key.split(':', 1)[0]
     name = kind if kind in ('project', 'area') else key
-    t = Text('   ' if indent else ' ')
+    t = Text(' ')
     t.append_text(icon(name))
     t.append('  ')
     t.append(label, style=f'bold {FG}' if kind == 'area' else FG)

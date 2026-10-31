@@ -177,7 +177,7 @@ class TitleBar(Horizontal):
         yield Static(id='title-right')
 
     def show(self, label: str, key: str) -> None:
-        self.query_one('#title-left', Static).update(style.title_bar(label, key))
+        self.query_one('#title-left', Static).update(style.title_bar())
         self.query_one('#title-right', Static).update(style.title_bar_right())
 
 
@@ -232,7 +232,7 @@ class ThingsApp(App):
     #items > .datatable--hover {{ background: {style.BG}; }}
     #detail-pane {{
         height: 1fr; background: {style.BG}; padding: 1 0 0 0; border: none;
-        border-top: hkey {style.RULE}; border-title-color: {style.FAINT}; border-title-align: left;
+        border-top: hkey {style.RULE};
         scrollbar-size-vertical: 1; scrollbar-background: {style.BG}; scrollbar-color: {style.RULE};
     }}
     Footer {{ background: {style.BG}; }}
@@ -301,6 +301,7 @@ class ThingsApp(App):
         self.items: dict[str, dict] = {}
         self.history: list[str] = []
         self.evening: set = set()
+        self._last_row = 0
         self._db_stamp = self._stamp()
 
     # -- layout --------------------------------------------------------------
@@ -320,7 +321,6 @@ class ThingsApp(App):
     def on_mount(self) -> None:
         self.register_theme(style.THEME)
         self.theme = style.THEME.name
-        self.query_one('#detail-pane').border_title = style.spaced('Details')
         table = self.query_one('#items', DataTable)
         table.add_column('', key='mark', width=1)
         table.add_column('Title', key='title')
@@ -379,7 +379,7 @@ class ThingsApp(App):
                 if p.get('area') == a['uuid']:
                     ps = project_source(p)
                     sources.append(ps)
-                    options.append(Option(style.sidebar_entry(p['title'], ps.key, indent=True), id=ps.key))
+                    options.append(Option(style.sidebar_entry(p['title'], ps.key), id=ps.key))
 
         if self.current and self.current.key.startswith('search:'):
             sources.append(self.current)
@@ -451,6 +451,8 @@ class ThingsApp(App):
             if not members:
                 continue
             if label:
+                if table.row_count:  # breathing room above every heading but the first row
+                    table.add_row('', '', '', '', key=f"{HEADER_PREFIX}gap{n}")
                 mark, title = style.group_heading(label, self._colour_key())
                 table.add_row(mark, title, '', '', key=f"{HEADER_PREFIX}{n}")
             for item in members:
@@ -490,6 +492,20 @@ class ThingsApp(App):
         return self.items.get(uuid) if uuid else None
 
     def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
+        """Keep the cursor off spacer and heading rows, moving on in the
+        direction of travel (or back, at the end of the list)."""
+        table = event.data_table
+        row = event.cursor_row
+        if event.row_key.value.startswith(HEADER_PREFIX):
+            step = -1 if row < self._last_row else 1
+            for candidate in (range(row + step, table.row_count, step) if step > 0 else range(row - 1, -1, -1),
+                              range(row - step, -1, -step) if step > 0 else range(row + 1, table.row_count)):
+                for r in candidate:
+                    if not table.coordinate_to_cell_key((r, 0))[0].value.startswith(HEADER_PREFIX):
+                        table.move_cursor(row=r)
+                        return
+            return
+        self._last_row = row
         self.show_detail()
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:

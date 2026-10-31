@@ -108,8 +108,8 @@ async def test_tui_loads_sidebar_and_today(database):
         await pilot.pause()
         table = app.query_one('#items', DataTable)
         # Today, then a "This Evening" group read from startBucket
-        assert [str(table.get_row_at(i)[1]) for i in range(table.row_count)] == \
-            ['Write brief', 'Book venue', 'Buy milk', 'This Evening', 'Call mum']
+        rows = [str(table.get_row_at(i)[1]) for i in range(table.row_count)]
+        assert rows == ['Write brief', 'Book venue', 'Buy milk', '', 'This Evening', 'Call mum']
         sidebar = app.query_one('#sidebar', OptionList)
         ids = {sidebar.get_option_at_index(i).id for i in range(sidebar.option_count)}
         assert {'project:PROJ-LAUNCH', 'area:AREA-HOME'} <= ids
