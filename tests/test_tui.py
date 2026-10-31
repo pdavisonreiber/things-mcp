@@ -8,6 +8,7 @@ pytest.importorskip('textual')
 from textual.widgets import DataTable, Input, OptionList  # noqa: E402
 
 from things_mcp.tui import HEADER_PREFIX, PromptScreen, ThingsApp  # noqa: E402
+from things_mcp.tui_style import ICONS  # noqa: E402
 
 TODAY = [
     {'uuid': 't1', 'title': 'Buy milk', 'type': 'to-do', 'status': 'incomplete', 'tags': ['shop'],
@@ -44,7 +45,10 @@ def _titles(app):
 
 
 def _mark(app, uuid):
-    return app.query_one('#items', DataTable).get_cell(uuid, 'mark')
+    return str(app.query_one('#items', DataTable).get_cell(uuid, 'mark'))
+
+
+DONE, OPEN, CANCELED = ICONS['done'], ICONS['todo'], ICONS['canceled']
 
 
 async def _start(app, pilot):
@@ -84,10 +88,10 @@ async def test_k_completes_and_toggles_back(core):
         await _start(app, pilot)
         await pilot.press('k')
         core.update_items.assert_called_once_with(['t1'], completed=True)
-        assert _mark(app, 't1') == '✓'
+        assert _mark(app, 't1') == DONE
         await pilot.press('k')
         core.update_items.assert_called_with(['t1'], completed=False)
-        assert _mark(app, 't1') == '☐'
+        assert _mark(app, 't1') == OPEN
 
 
 async def test_shift_k_cancels(core):
@@ -96,7 +100,7 @@ async def test_shift_k_cancels(core):
         await _start(app, pilot)
         await pilot.press('K')
         core.update_items.assert_called_once_with(['t1'], canceled=True)
-        assert _mark(app, 't1') == '✗'
+        assert _mark(app, 't1') == CANCELED
 
 
 @pytest.mark.parametrize('key,when', [('t', 'today'), ('e', 'evening'), ('r', 'anytime'), ('o', 'someday')])
@@ -268,7 +272,7 @@ async def test_write_errors_are_reported_not_raised(core):
     async with app.run_test() as pilot:
         await _start(app, pilot)
         await pilot.press('k')
-        assert _mark(app, 't1') == '☐'  # no optimistic change on failure
+        assert _mark(app, 't1') == OPEN  # no optimistic change on failure
 
 
 async def test_detail_follows_cursor(core):
@@ -277,7 +281,8 @@ async def test_detail_follows_cursor(core):
         await _start(app, pilot)
         await pilot.press('down')
         await pilot.pause()
-        assert 'DETAIL Write report' in str(app.query_one('#detail').render())
+        detail = str(app.query_one('#detail').render())
+        assert 'Write report' in detail and 't2' in detail
 
 
 async def test_question_mark_toggles_key_help(core):

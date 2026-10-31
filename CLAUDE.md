@@ -81,6 +81,8 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
 
 5. **src/things_mcp/tui.py** - `things tui` / `things-tui` (Textual, optional `tui` extra). Mirrors the Things Mac app: sidebar order/nesting, list grouping (This Evening via `core.evening_uuids()`, which reads `TMTask.startBucket` because things.py doesn't), and key bindings taken from Things' Mac shortcuts with ⌘ dropped — keep new bindings consistent with that table in the README. Writes are fire-and-forget, so it updates rows optimistically, re-reads after `REFRESH_AFTER_WRITE`, and polls the database file's mtime to pick up external changes.
 
+   - **tui_style.py** holds the Things-dark palette (`LIST_COLOURS`), icon sets (Unicode default; Nerd Font via `THINGS_TUI_ICONS=nerd`) and the Rich renderers for rows, group headings, the list banner, sidebar entries and the detail card. Change the look there, not in tui.py.
+
 6. **src/things_mcp/display.py** - Compact one-line rendering for CLI/TUI; uses `project_title`/`area_title`/`heading_title` from things.py rows so lists need no per-item lookups.
 
 7. **tests/** - Test suite (260 tests)

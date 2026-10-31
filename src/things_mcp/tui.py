@@ -32,10 +32,11 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
-from textual.widgets import DataTable, Footer, Header, Input, Label, OptionList, Static
+from textual.widgets import DataTable, Footer, Input, Label, OptionList, Static
 from textual.widgets.option_list import Option
 
 from . import core, display
+from . import tui_style as style
 from .core import ThingsError
 
 REFRESH_AFTER_WRITE = 1.0   # seconds to wait before re-reading after a write
@@ -155,7 +156,8 @@ class PromptScreen(ModalScreen[Optional[str]]):
         self.placeholder = placeholder
 
     def compose(self) -> ComposeResult:
-        with Vertical(id='prompt'):
+        with Vertical(id='prompt') as box:
+            box.border_title = '─ THINGS ─'
             yield Label(self.question)
             yield Input(value=self.value, placeholder=self.placeholder)
 
@@ -164,6 +166,18 @@ class PromptScreen(ModalScreen[Optional[str]]):
 
     def action_cancel(self) -> None:
         self.dismiss(None)
+
+
+class TitleBar(Horizontal):
+    """Retro top bar: wordmark and current list on the left, date/time on the right."""
+
+    def compose(self) -> ComposeResult:
+        yield Static(id='title-left')
+        yield Static(id='title-right')
+
+    def show(self, label: str, key: str) -> None:
+        self.query_one('#title-left', Static).update(style.title_bar(label, key))
+        self.query_one('#title-right', Static).update(style.title_bar_right())
 
 
 class ItemTable(DataTable):
@@ -191,13 +205,41 @@ class ItemTable(DataTable):
 
 class ThingsApp(App):
     TITLE = 'Things'
-    CSS = """
-    #sidebar { width: 32; border-right: solid $panel; }
-    #main { width: 1fr; }
-    #items { height: 2fr; }
-    #detail-pane { height: 1fr; border-top: solid $panel; padding: 0 1; }
-    PromptScreen { align: center middle; }
-    #prompt { width: 70; height: auto; padding: 1 2; border: thick $accent; background: $surface; }
+    CSS = f"""
+    Screen {{ background: {style.BG}; }}
+    TitleBar {{ height: 1; background: {style.SIDEBAR}; }}
+    #title-left {{ width: 1fr; padding: 0 1; }}
+    #title-right {{ width: auto; }}
+    #sidebar {{
+        width: 34; height: 1fr; background: {style.SIDEBAR}; border: none;
+        scrollbar-size-vertical: 1; scrollbar-background: {style.SIDEBAR};
+        scrollbar-color: {style.RULE};
+        border-right: vkey {style.RULE}; padding: 1 0;
+    }}
+    #sidebar > .option-list--option-highlighted {{ background: {style.BLUE} 35%; }}
+    #sidebar:focus > .option-list--option-highlighted {{ background: {style.BLUE} 60%; }}
+    #sidebar > .option-list--separator {{ color: {style.RULE}; }}
+    #main {{ width: 1fr; padding: 0 2; }}
+    #banner {{ height: 3; padding: 1 0 0 0; border-bottom: hkey {style.RULE}; }}
+    #items {{ height: 2fr; background: {style.BG}; margin-top: 1; }}
+    #items > .datatable--cursor {{ background: {style.BLUE} 30%; }}
+    #items:focus > .datatable--cursor {{ background: {style.BLUE} 55%; }}
+    #items > .datatable--hover {{ background: {style.PANEL}; }}
+    #detail-pane {{
+        height: 1fr; background: {style.PANEL}; padding: 1 2; margin-bottom: 1;
+        border: round {style.RULE}; border-title-color: {style.AMBER};
+        scrollbar-size-vertical: 1; scrollbar-background: {style.PANEL};
+        scrollbar-color: {style.RULE}; scrollbar-color-hover: {style.MUTED};
+    }}
+    #items {{ scrollbar-size-vertical: 1; scrollbar-background: {style.BG}; scrollbar-color: {style.RULE}; }}
+    Footer {{ background: {style.SIDEBAR}; }}
+    PromptScreen {{ align: center middle; background: {style.BG} 60%; }}
+    #prompt {{
+        width: 72; height: auto; padding: 1 2; background: {style.PANEL};
+        border: round {style.AMBER}; border-title-color: {style.AMBER};
+    }}
+    #prompt Input {{ background: {style.BG}; border: tall {style.RULE}; }}
+    #prompt Input:focus {{ border: tall {style.BLUE}; }}
     """
 
     # Things Mac shortcut in the description where it differs from the key.
@@ -250,32 +292,46 @@ class ThingsApp(App):
         self.current: Optional[Source] = None
         self.items: dict[str, dict] = {}
         self.history: list[str] = []
+        self.evening: set = set()
         self._db_stamp = self._stamp()
 
     # -- layout --------------------------------------------------------------
 
     def compose(self) -> ComposeResult:
-        yield Header()
+        yield TitleBar()
         with Horizontal():
             yield OptionList(id='sidebar')
             with Vertical(id='main'):
-                yield ItemTable(id='items', cursor_type='row', zebra_stripes=True)
+                yield Static(id='banner')
+                yield ItemTable(id='items', cursor_type='row', show_header=False,
+                                cell_padding=1)
                 with VerticalScroll(id='detail-pane'):
                     yield Static(id='detail')
         yield Footer()
 
     def on_mount(self) -> None:
+        self.register_theme(style.THEME)
+        self.theme = style.THEME.name
+        self.query_one('#detail-pane').border_title = '─ DETAILS ─'
         table = self.query_one('#items', DataTable)
         table.add_column('', key='mark', width=1)
         table.add_column('Title', key='title')
         table.add_column('Where', key='where')
-        table.add_column('When', key='when')
-        table.add_column('Deadline', key='deadline')
-        table.add_column('Tags', key='tags')
+        table.add_column('Info', key='info')
         self.load_sidebar()
         self.select_source('today')
         if self.db_path:
             self.set_interval(DB_POLL_INTERVAL, self.check_database)
+        self.set_interval(30, self._update_title)
+
+    def _update_title(self) -> None:
+        if self.current:
+            self.query_one(TitleBar).show(self.current.label, self._colour_key())
+
+    def _colour_key(self) -> str:
+        """The palette key for the current list (projects/areas share one)."""
+        key = self.current.key if self.current else 'today'
+        return key.split(':', 1)[0] if ':' in key else key
 
     # -- sidebar -------------------------------------------------------------
 
@@ -286,10 +342,12 @@ class ThingsApp(App):
         builtins = {s.key: s for s in builtin_sources()}
         sources = list(builtins.values())
         options: list = []
+        counts = self._counts()
         for group in (['inbox'], ['today', 'upcoming', 'anytime', 'someday'], ['logbook', 'trash']):
             if options:
                 options.append(None)
-            options += [Option(builtins[k].label, id=k) for k in group]
+            options += [Option(style.sidebar_entry(builtins[k].label, k, counts.get(k)), id=k)
+                        for k in group]
 
         try:
             projects, areas = core.projects(), core.areas()
@@ -303,17 +361,17 @@ class ThingsApp(App):
             for p in loose:
                 s = project_source(p)
                 sources.append(s)
-                options.append(Option(f"○ {p['title']}", id=s.key))
+                options.append(Option(style.sidebar_entry(p['title'], s.key), id=s.key))
         for a in areas:
             options.append(None)
             s = area_source(a)
             sources.append(s)
-            options.append(Option(Text(f"▣ {a['title']}", style='bold'), id=s.key))
+            options.append(Option(style.sidebar_entry(a['title'], s.key), id=s.key))
             for p in projects:
                 if p.get('area') == a['uuid']:
                     ps = project_source(p)
                     sources.append(ps)
-                    options.append(Option(f"  ○ {p['title']}", id=ps.key))
+                    options.append(Option(style.sidebar_entry(p['title'], ps.key, indent=True), id=ps.key))
 
         if self.current and self.current.key.startswith('search:'):
             sources.append(self.current)
@@ -324,6 +382,16 @@ class ThingsApp(App):
         sidebar.add_options(options)
         if self.current and self.current.key in self.sources:
             self._highlight_sidebar(self.current.key)
+
+    def _counts(self) -> dict:
+        """Badge counts for the sidebar, as Things shows for Inbox and Today."""
+        counts = {}
+        for key, fetch in (('inbox', core.inbox), ('today', core.today)):
+            try:
+                counts[key] = len(fetch() or [])
+            except Exception:
+                pass
+        return counts
 
     def _highlight_sidebar(self, key: str) -> None:
         sidebar = self.query_one('#sidebar', OptionList)
@@ -349,6 +417,7 @@ class ThingsApp(App):
             self.history.append(self.current.key)
         self.current = source
         self.sub_title = source.label
+        self._update_title()
         self._highlight_sidebar(key)
         self.load_items()
 
@@ -362,17 +431,20 @@ class ThingsApp(App):
         try:
             items = self.current.fetch()
             groups = self.current.group(items)
+            self.evening = core.evening_uuids()
         except Exception as e:
             self.notify(str(e), severity='error')
-            items, groups = [], []
+            items, groups, self.evening = [], [], set()
         self.items = {i['uuid']: i for i in items if i.get('uuid')}
+        self.query_one('#banner', Static).update(
+            style.list_banner(self.current.label, self.current.key, len(self.items)))
         table.clear()
         for n, (label, members) in enumerate(groups):
             if not members:
                 continue
             if label:
-                table.add_row('', Text(label, style='bold'), '', '', '', '',
-                              key=f"{HEADER_PREFIX}{n}")
+                mark, title = style.group_heading(label, self._colour_key())
+                table.add_row(mark, title, '', '', key=f"{HEADER_PREFIX}{n}")
             for item in members:
                 if item.get('uuid'):
                     table.add_row(*self._cells(item), key=item['uuid'])
@@ -381,21 +453,18 @@ class ThingsApp(App):
         self.show_detail()
 
     def _cells(self, item: dict) -> list:
-        finished = item.get('status') in ('completed', 'canceled')
-        title_style = 'dim strike' if finished else ''
+        key = self.current.key if self.current else ''
         return [
-            display.mark(item),
-            Text(item.get('title') or '(untitled)', style=title_style),
-            Text(display.location(item), style='dim'),
-            display.when(item),
-            str(item.get('deadline') or ''),
-            Text(display.tag_text(item), style='cyan'),
+            style.checkbox(item),
+            style.title_cell(item),
+            style.where_cell(item) if not key.startswith('project:') else Text(''),
+            style.info_cell(item, key, evening=item.get('uuid') in self.evening),
         ]
 
     def _redraw_row(self, uuid: str) -> None:
         table = self.query_one('#items', DataTable)
         item = self.items[uuid]
-        for column, value in zip(('mark', 'title', 'where', 'when', 'deadline', 'tags'), self._cells(item)):
+        for column, value in zip(('mark', 'title', 'where', 'info'), self._cells(item)):
             table.update_cell(uuid, column, value)
 
     def selected_uuid(self) -> Optional[str]:
@@ -423,10 +492,13 @@ class ThingsApp(App):
         detail = self.query_one('#detail', Static)
         item = self.selected_item()
         if item is None:
-            detail.update(Text('Nothing selected', style='dim'))
+            detail.update(Text('Nothing selected', style=style.FAINT))
             return
         try:
-            detail.update(Text(display.detail(item)))
+            if item.get('type') in ('to-do', 'project'):
+                detail.update(style.detail_card(item, evening=item['uuid'] in self.evening))
+            else:
+                detail.update(Text(display.detail(item)))
         except Exception as e:
             detail.update(Text(f"{item.get('title')}\n\n(couldn't load details: {e})"))
 
@@ -532,6 +604,7 @@ class ThingsApp(App):
                 self.history.append(self.current.key)
             self.current = source
             self.sub_title = source.label
+            self._update_title()
             self.query_one('#sidebar', OptionList).highlighted = None
             self.load_items()
             self.query_one('#items', DataTable).focus()

@@ -177,6 +177,8 @@ things tui      # or: things-tui
 
 The layout follows the Things Mac app: the sidebar is grouped the same way (Inbox / Today, Upcoming, Anytime, Someday / Logbook, Trash / projects / areas with their projects nested beneath), Today ends with a **This Evening** section, Upcoming and the Logbook are grouped by date, Anytime and Someday by project, and projects by heading. A detail pane stands in for Things' inline to-do card.
 
+It uses a dark palette modelled on Things' dark mode: each built-in list has its own icon colour, deadlines show as red flags with days left, and tags are pills. There are a few retro touches too: a block-gradient wordmark, a clock, and amber accents. Icons are plain Unicode by default. If your terminal uses a [Nerd Font](https://www.nerdfonts.com), set `THINGS_TUI_ICONS=nerd` for proper glyphs.
+
 Keys follow [Things' Mac shortcuts](https://culturedcode.com/things/support/articles/2785159/) with ⌘ dropped and ⇧ kept. ⌃ and ⌥ are dropped too, because terminals can't send them reliably (⌃[ is the same as Escape, and ⌥ types special characters on macOS). Press `?` in the app for the full list.
 
 | Key | Action | Things |
@@ -369,6 +371,7 @@ things-mcp/
 │   ├── server.py        # MCP server implementation
 │   ├── cli.py           # `things` command-line interface
 │   ├── tui.py           # `things tui` terminal interface (Textual)
+│   ├── tui_style.py     # TUI palette, icons and row/detail rendering
 │   ├── display.py       # Compact one-line rendering for CLI/TUI
 │   ├── url_scheme.py    # Things URL scheme + AppleScript implementation
 │   └── formatters.py    # Data formatting utilities
