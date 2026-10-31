@@ -41,7 +41,7 @@ def core(mocker):
 
 def _titles(app):
     table = app.query_one('#items', DataTable)
-    return [t for t in (str(table.get_row_at(i)[1]) for i in range(table.row_count)) if t]
+    return [t for t in (str(table.get_row_at(i)[2]) for i in range(table.row_count)) if t]
 
 
 def _mark(app, uuid):

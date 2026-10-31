@@ -197,19 +197,20 @@ class ThingsApp(App):
     # Flat: one background everywhere, thin rules instead of boxes or panels.
     CSS = f"""
     Screen {{ background: {style.BG}; }}
-    #sidebar-pane {{ width: 34; height: 1fr; border-right: vkey {style.RULE}; }}
+    /* No divider line: the sidebar is a slightly lighter shade, as in Things. */
+    #sidebar-pane {{ width: 34; height: 1fr; background: {style.SIDEBAR}; }}
     #logo {{ height: auto; padding: 1 1 0 1; }}
     #empty {{ height: 2fr; content-align: center middle; display: none; }}
     #sidebar {{
-        height: 1fr; background: {style.BG}; border: none; padding: 1 0;
-        scrollbar-size-vertical: 1; scrollbar-background: {style.BG}; scrollbar-color: {style.RULE};
+        height: 1fr; background: {style.SIDEBAR}; border: none; padding: 1 0;
+        scrollbar-size-vertical: 0;  /* no gutter, so the selection reaches the edge */
     }}
     #sidebar > .option-list--option-highlighted {{ background: {style.BLUE} 25%; text-style: none; }}
     #sidebar:focus > .option-list--option-highlighted {{ background: {style.BLUE} 45%; }}
-    #sidebar > .option-list--option-hover {{ background: {style.BG}; }}
-    #sidebar > .option-list--separator {{ color: {style.BG}; }}
-    #main {{ width: 1fr; padding: 0 2; }}
-    #banner {{ height: 2; padding: 1 0 0 0; }}
+    #sidebar > .option-list--option-hover {{ background: {style.SIDEBAR}; }}
+    #sidebar > .option-list--separator {{ color: {style.SIDEBAR}; }}
+    #main {{ width: 1fr; padding: 0; }}  /* no side padding: selection spans the full width */
+    #banner {{ height: 2; padding: 1 0 0 3; }}
     #items {{
         height: 2fr; background: {style.BG}; margin-top: 1;
         scrollbar-size-vertical: 1; scrollbar-background: {style.BG}; scrollbar-color: {style.RULE};
@@ -218,7 +219,7 @@ class ThingsApp(App):
     #items:focus > .datatable--cursor {{ background: {style.BLUE} 45%; }}
     #items > .datatable--hover {{ background: {style.BG}; }}
     #detail-pane {{
-        height: 1fr; background: {style.BG}; padding: 1 0 0 0; border: none;
+        height: 1fr; background: {style.BG}; padding: 1 4 0 4; border: none;
         border-top: hkey {style.RULE};
         scrollbar-size-vertical: 1; scrollbar-background: {style.BG}; scrollbar-color: {style.RULE};
     }}
@@ -232,7 +233,8 @@ class ThingsApp(App):
     #prompt Input {{ background: {style.BG}; border: none; padding: 0; height: 1; }}
     #prompt Input:focus {{ border: none; }}
     #prompt-line {{ height: 1; }}
-    #items:focus, #sidebar:focus, #detail-pane:focus, #prompt Input:focus {{ background-tint: {style.BG} 0%; }}
+    #items:focus, #detail-pane:focus, #prompt Input:focus {{ background-tint: {style.BG} 0%; }}
+    #sidebar:focus {{ background-tint: {style.SIDEBAR} 0%; }}
     #items > .datatable--even-row, #items > .datatable--odd-row {{ background: {style.BG}; }}
     #prompt-caret {{ width: 2; }}
     """
@@ -311,6 +313,7 @@ class ThingsApp(App):
         self.register_theme(style.THEME)
         self.theme = style.THEME.name
         table = self.query_one('#items', DataTable)
+        table.add_column('', key='pad', width=1)  # left inset that the selection still covers
         table.add_column('', key='mark', width=1)
         table.add_column('Title', key='title')
         table.add_column('Where', key='where')
@@ -435,9 +438,9 @@ class ThingsApp(App):
                 continue
             if label:
                 if table.row_count:  # breathing room above every heading but the first row
-                    table.add_row('', '', '', '', key=f"{HEADER_PREFIX}gap{n}")
+                    table.add_row('', '', '', '', '', key=f"{HEADER_PREFIX}gap{n}")
                 mark, title = style.group_heading(label, self._colour_key())
-                table.add_row(mark, title, '', '', key=f"{HEADER_PREFIX}{n}")
+                table.add_row('', mark, title, '', '', key=f"{HEADER_PREFIX}{n}")
             for item in members:
                 if item.get('uuid'):
                     table.add_row(*self._cells(item), key=item['uuid'])
@@ -453,6 +456,7 @@ class ThingsApp(App):
     def _cells(self, item: dict) -> list:
         key = self.current.key if self.current else ''
         return [
+            '',
             style.checkbox(item),
             style.title_cell(item),
             style.where_cell(item) if not key.startswith('project:') else Text(''),
@@ -462,7 +466,7 @@ class ThingsApp(App):
     def _redraw_row(self, uuid: str) -> None:
         table = self.query_one('#items', DataTable)
         item = self.items[uuid]
-        for column, value in zip(('mark', 'title', 'where', 'info'), self._cells(item)):
+        for column, value in zip(('pad', 'mark', 'title', 'where', 'info'), self._cells(item)):
             table.update_cell(uuid, column, value)
 
     def selected_uuid(self) -> Optional[str]:
