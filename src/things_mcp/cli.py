@@ -21,12 +21,14 @@ import os
 import sqlite3
 import subprocess
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 import click
 import things
+from rich.console import Console
+from rich.table import Table
 
-from . import core, display
+from . import core, display, style
 from .core import ThingsError
 
 BUILTIN_LISTS = ('inbox', 'today', 'upcoming', 'anytime', 'someday', 'logbook', 'trash')
@@ -90,15 +92,32 @@ def _resolve_opt(ref: Optional[str]) -> Optional[str]:
 # Output
 # ---------------------------------------------------------------------------
 
+def _console() -> Console:
+    """Rich console for list output. When piped (not a terminal) Rich drops the
+    colours; a generous width keeps rows from being cut short."""
+    console = Console(highlight=False)
+    if not console.is_terminal:
+        console = Console(highlight=False, width=160)
+    return console
+
+
 def _print_items(items: list, *, limit: Optional[int], offset: int, as_json: bool,
-                 long: bool, empty: str) -> None:
-    total = len(items)
+                 long: bool, empty: str, list_key: str = '',
+                 group: Optional[Callable[[list], display.Groups]] = None) -> None:
+    """Print a listing. Rows are grouped like the Things list (``group``),
+    numbered in the order they're shown, and paged with ``limit``/``offset``."""
+    # Order rows as they'll be shown (grouping can reorder, e.g. Upcoming by
+    # date), then page through that order so numbers match what's printed.
+    ordered = [(label, item) for label, members in (group(items) if group else [(None, items)])
+               for item in members]
+    total = len(ordered)
     end = total if limit is None else offset + limit
-    page = items[offset:end]
+    page = ordered[offset:end]
+    page_items = [item for _, item in page]
 
     if as_json:
         click.echo(json.dumps({
-            'items': page, 'count': len(page), 'total': total,
+            'items': page_items, 'count': len(page_items), 'total': total,
             'offset': offset, 'limit': limit,
         }, default=str, indent=2, ensure_ascii=False))
         return
@@ -108,19 +127,35 @@ def _print_items(items: list, *, limit: Optional[int], offset: int, as_json: boo
         return
 
     if long:
-        click.echo('\n\n'.join(display.detail(item) for item in page))
+        click.echo('\n\n'.join(display.detail(item) for item in page_items))
     else:
-        width = len(str(offset + len(page)))
-        for n, item in enumerate(page, start=offset + 1):
-            title = click.style(item.get('title') or '(untitled)',
-                                dim=item.get('status') in ('completed', 'canceled'))
-            line = f"{n:>{width}}  {display.mark(item)} {title}"
-            extra = display.summary(item)
-            if extra:
-                line += '  ' + click.style(extra, dim=True)
-            click.echo(line)
+        evening = core.evening_uuids()
+        colour_key = list_key.split(':', 1)[0] if list_key else ''
+        table = Table(show_header=False, box=None, padding=(0, 1), pad_edge=False)
+        table.add_column(justify='right', style=style.FAINT, no_wrap=True)
+        table.add_column(no_wrap=True, overflow='ellipsis')
+        table.add_column(no_wrap=True)
+        table.add_column(no_wrap=True)
+        current = None
+        for n, (label, item) in enumerate(page, start=offset + 1):
+            if label != current:
+                if label:
+                    if n > offset + 1:
+                        table.add_row('', '', '', '')
+                    table.add_row('', style.group_heading(label, colour_key), '', '')
+                current = label
+            table.add_row(str(n), style.row_title(item),
+                          style.where_cell(item, omit=label) if colour_key != 'project' else '',
+                          style.info_cell(item, list_key, evening=item.get('uuid') in evening))
+        console = _console()
+        if console.is_terminal:
+            console.print(table)
+        else:  # plain text: drop the table's trailing padding
+            with console.capture() as captured:
+                console.print(table)
+            click.echo('\n'.join(line.rstrip() for line in captured.get().splitlines()))
 
-    numbered = {n: item['uuid'] for n, item in enumerate(page, start=offset + 1) if item.get('uuid')}
+    numbered = {n: item['uuid'] for n, item in enumerate(page_items, start=offset + 1) if item.get('uuid')}
     _save_refs(numbered)
     if len(page) < total:
         click.echo(click.style(f"\nShowing {offset + 1}-{offset + len(page)} of {total}", dim=True))
@@ -184,12 +219,24 @@ def main(ctx):
 # Built-in lists
 # ---------------------------------------------------------------------------
 
+# Grouping per built-in list, as in the Things app (and the TUI).
+LIST_GROUPS = {
+    'today': display.group_today,
+    'upcoming': display.group_upcoming,
+    'anytime': display.group_by_location,
+    'someday': display.group_by_location,
+}
+
+
 def _simple_list(name: str, help_text: str):
     """A listing command backed by the core function of the same name."""
     @main.command(name=name, help=help_text)
     @list_options()
     def command(limit, offset, as_json, long):
-        _print_items(getattr(core, name)(), limit=limit, offset=offset, as_json=as_json, long=long,
+        items = getattr(core, name)()
+        if name in ('anytime', 'someday'):
+            items = display.without_headings(items)
+        _print_items(items, list_key=name, group=LIST_GROUPS.get(name), limit=limit, offset=offset, as_json=as_json, long=long,
                      empty=f"{name.capitalize()} is empty")
     return command
 
@@ -209,7 +256,8 @@ trash_cmd = _simple_list('trash', 'Trashed to-dos.')
 def logbook_cmd(period, project_ref, limit, offset, as_json, long):
     """Completed and canceled items, newest first."""
     items = core.logbook(period, _resolve_opt(project_ref))
-    _print_items(items, limit=limit, offset=offset, as_json=as_json, long=long, empty='Nothing logged in that period')
+    _print_items(items, list_key='logbook', group=display.group_logbook, limit=limit, offset=offset,
+                 as_json=as_json, long=long, empty='Nothing logged in that period')
 
 
 @main.command('recent')
@@ -230,7 +278,9 @@ def recent_cmd(period, limit, offset, as_json, long):
 @list_options()
 def todos_cmd(project_ref, limit, offset, as_json, long):
     """All open to-dos, optionally in one project."""
-    _print_items(core.todos(_resolve_opt(project_ref)), limit=limit, offset=offset,
+    project = _resolve_opt(project_ref)
+    _print_items(core.todos(project), list_key='project' if project else '',
+                 group=display.group_by_heading if project else None, limit=limit, offset=offset,
                  as_json=as_json, long=long, empty='No to-dos found')
 
 
@@ -295,7 +345,8 @@ def headings_cmd(project_ref, limit, offset, as_json, long):
 def search_cmd(query, limit, offset, as_json, long):
     """Search to-do titles and notes."""
     text = ' '.join(query)
-    _print_items(core.search(text), limit=limit, offset=offset, as_json=as_json, long=long,
+    _print_items(core.search(text), list_key='search', group=display.group_by_location,
+                 limit=limit, offset=offset, as_json=as_json, long=long,
                  empty=f"Nothing matches '{text}'")
 
 

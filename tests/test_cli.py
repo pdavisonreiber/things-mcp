@@ -39,9 +39,10 @@ def test_today_lists_numbered_rows_with_summary(mocker, run):
     result = run('today')
     assert result.exit_code == 0
     lines = result.output.splitlines()
-    assert lines[0].startswith('1  ☐ Buy milk')
-    assert 'Errands' in lines[0] and 'due 2026-11-02' in lines[0] and '#shop' in lines[0]
-    assert lines[1].startswith('2  ☐ Write report')
+    assert lines[0].startswith('1  ☐  Buy milk')
+    assert 'Errands' in lines[0] and '⚑' in lines[0] and '#shop' in lines[0]
+    assert lines[1].startswith('2  ☐  Write report')
+    assert all(line == line.rstrip() for line in lines)  # no trailing padding when piped
 
 
 def test_no_command_shows_today(mocker, run):
@@ -57,7 +58,7 @@ def test_empty_list_message(mocker, run):
 def test_limit_and_offset_number_from_offset(mocker, run):
     mocker.patch('things_mcp.core.today', return_value=TODOS)
     result = run('today', '--limit', '1', '--offset', '1')
-    assert result.output.splitlines()[0].startswith('2  ☐ Write report')
+    assert result.output.splitlines()[0].startswith('2  ☐  Write report')
     assert 'Showing 2-2 of 3' in result.output
 
 

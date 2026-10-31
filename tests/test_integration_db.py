@@ -5,6 +5,7 @@ Writes still can't reach Things here, so execute_url is patched to capture
 the URLs that would be sent.
 """
 import json
+import re
 
 import pytest
 from click.testing import CliRunner
@@ -35,7 +36,13 @@ def things(*args):
 
 
 def titles(output):
-    return [line.split('  ', 1)[1][2:].split('  ')[0] for line in output.splitlines() if line.strip()]
+    """Titles of the numbered rows in a listing (skips group headings)."""
+    rows = []
+    for line in output.splitlines():
+        m = re.match(r'^\s*\d+\s+\S\s+(.+?)(?:\s{2,}|$)', line)
+        if m:
+            rows.append(m.group(1).removesuffix(' ✎'))
+    return rows
 
 
 def test_today_excludes_someday_project_tasks():
@@ -55,7 +62,7 @@ def test_logbook_window_uses_completion_date():
 
 def test_row_summary_uses_things_py_titles():
     out = things('today')
-    assert 'Launch' in out and 'due' in out and '☑ 1/2' in out and '#errand' in out
+    assert 'Launch' in out and '⚑' in out and '≡ 1/2' in out and '#errand' in out
 
 
 def test_tag_usage_and_recent():

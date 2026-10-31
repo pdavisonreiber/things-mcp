@@ -1,4 +1,4 @@
-"""Look and feel for the TUI: a Things-dark palette, list icons, and the
+"""Look and feel shared by the TUI and CLI: a Things-dark palette, list icons, and the
 Rich renderables for rows, headings and the detail card.
 
 Colours approximate the Things 3 Mac app in dark mode (each built-in list has
@@ -14,7 +14,6 @@ from datetime import date, datetime
 from typing import Optional
 
 from rich.text import Text
-from textual.theme import Theme
 
 # ---------------------------------------------------------------------------
 # Palette (Things 3, dark mode — approximate)
@@ -47,20 +46,6 @@ LIST_COLOURS = {
 
 TAG_FG = '#d1d1d6'
 
-THEME = Theme(
-    name='things-dark',
-    primary=BLUE,
-    secondary=LIST_COLOURS['anytime'],
-    accent=AMBER,
-    warning=LIST_COLOURS['today'],
-    error=RED,
-    success=LIST_COLOURS['logbook'],
-    foreground=FG,
-    background=BG,
-    surface=SIDEBAR,
-    panel=PANEL,
-    dark=True,
-)
 
 # ---------------------------------------------------------------------------
 # Icons
@@ -156,6 +141,8 @@ def checkbox(item: dict) -> Text:
         return icon('area')
     if kind == 'heading':
         return icon('heading', LIST_COLOURS['project'])
+    if kind == 'tag':
+        return Text('#', style=MUTED)
     if status == 'completed':
         return icon('done', BLUE)
     if status == 'canceled':

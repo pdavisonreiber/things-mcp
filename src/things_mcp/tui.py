@@ -35,72 +35,31 @@ from textual.screen import ModalScreen
 from textual.widgets import DataTable, Footer, Input, OptionList, Static
 from textual.widgets.option_list import Option
 
-from . import core, display
-from . import tui_style as style
+from textual.theme import Theme
+
+from . import core, display, style
+from .display import (Groups, group_by_heading, group_by_location, group_logbook, group_today,
+                      group_upcoming, no_groups, without_headings)
 from .core import ThingsError
 
 REFRESH_AFTER_WRITE = 1.0   # seconds to wait before re-reading after a write
 DB_POLL_INTERVAL = 2.0      # seconds between database change checks
 HEADER_PREFIX = 'hdr:'      # row keys for group headings in the item table
 
-Groups = list[tuple[Optional[str], list]]
-
-
-# ---------------------------------------------------------------------------
-# Grouping, like the Things lists
-# ---------------------------------------------------------------------------
-
-def no_groups(items: list) -> Groups:
-    return [(None, items)]
-
-
-def group_by(key: Callable[[dict], Optional[str]], items: list, ungrouped_first: bool = True) -> Groups:
-    """Group items by key, keeping first-seen order (and the items' order)."""
-    groups: dict[Optional[str], list] = {}
-    for item in items:
-        groups.setdefault(key(item) or None, []).append(item)
-    ordered = list(groups.items())
-    if ungrouped_first:
-        ordered.sort(key=lambda g: g[0] is not None)  # stable: only moves None first
-    return ordered
-
-
-def group_today(items: list) -> Groups:
-    """Today, then This Evening (as in Things)."""
-    evening = core.evening_uuids()
-    return [(None, [i for i in items if i['uuid'] not in evening]),
-            ('This Evening', [i for i in items if i['uuid'] in evening])]
-
-
-def _day_label(value) -> Optional[str]:
-    if not value:
-        return None
-    try:
-        d = date.fromisoformat(str(value)[:10])
-    except ValueError:
-        return str(value)
-    if d == date.today() + timedelta(days=1):
-        return 'Tomorrow'
-    return f"{d:%a} {d.day} {d:%b}" + (f" {d.year}" if d.year != date.today().year else '')
-
-
-def group_upcoming(items: list) -> Groups:
-    """By start date, soonest first (things.py doesn't return them in date order)."""
-    ordered = sorted(items, key=lambda i: str(i.get('start_date') or '9999'))
-    return group_by(lambda i: _day_label(i.get('start_date')), ordered, ungrouped_first=False)
-
-
-def group_by_location(items: list) -> Groups:
-    return group_by(lambda i: i.get('project_title') or i.get('area_title'), items)
-
-
-def group_logbook(items: list) -> Groups:
-    return group_by(lambda i: _day_label(i.get('stop_date')), items, ungrouped_first=False)
-
-
-def group_by_heading(items: list) -> Groups:
-    return group_by(lambda i: i.get('heading_title'), items)
-
+THEME = Theme(
+    name='things-dark',
+    primary=style.BLUE,
+    secondary=style.LIST_COLOURS['anytime'],
+    accent=style.AMBER,
+    warning=style.LIST_COLOURS['today'],
+    error=style.RED,
+    success=style.LIST_COLOURS['logbook'],
+    foreground=style.FG,
+    background=style.BG,
+    surface=style.SIDEBAR,
+    panel=style.PANEL,
+    dark=True,
+)
 
 # ---------------------------------------------------------------------------
 # Sidebar sources
@@ -117,11 +76,6 @@ class Source:
     read_only: bool = False
 
 
-def _without_headings(items: list) -> list:
-    """Headings already appear as group titles; don't also list them as rows."""
-    return [i for i in items if i.get('type') != 'heading']
-
-
 BUILTIN_ORDER = ['inbox', 'today', 'upcoming', 'anytime', 'someday', 'logbook']  # ⌘1–⌘6
 
 
@@ -130,9 +84,9 @@ def builtin_sources() -> list[Source]:
         Source('inbox', 'Inbox', core.inbox),
         Source('today', 'Today', core.today, {'when': 'today'}, group_today),
         Source('upcoming', 'Upcoming', core.upcoming, group=group_upcoming),
-        Source('anytime', 'Anytime', lambda: _without_headings(core.anytime()), {'when': 'anytime'},
+        Source('anytime', 'Anytime', lambda: without_headings(core.anytime()), {'when': 'anytime'},
                group_by_location),
-        Source('someday', 'Someday', lambda: _without_headings(core.someday()), {'when': 'someday'},
+        Source('someday', 'Someday', lambda: without_headings(core.someday()), {'when': 'someday'},
                group_by_location),
         Source('logbook', 'Logbook', lambda: core.logbook('1m'), group=group_logbook, read_only=True),
         Source('trash', 'Trash', core.trash, read_only=True),
@@ -406,8 +360,8 @@ class ThingsApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        self.register_theme(style.THEME)
-        self.theme = style.THEME.name
+        self.register_theme(THEME)
+        self.theme = THEME.name
         self._add_columns(self.query_one('#items', DataTable))
         self.load_sidebar()
         self.select_source('today')

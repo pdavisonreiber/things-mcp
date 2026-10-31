@@ -8,7 +8,7 @@ pytest.importorskip('textual')
 from textual.widgets import DataTable, Input, OptionList  # noqa: E402
 
 from things_mcp.tui import CommandLine, HelpScreen, ThingsApp  # noqa: E402
-from things_mcp.tui_style import ICONS  # noqa: E402
+from things_mcp.style import ICONS  # noqa: E402
 
 TODAY = [
     {'uuid': 't1', 'title': 'Buy milk', 'type': 'to-do', 'status': 'incomplete', 'tags': ['shop'],
@@ -23,6 +23,7 @@ INBOX = [{'uuid': 'i1', 'title': 'Inbox thing', 'type': 'to-do', 'status': 'inco
 def core(mocker):
     """Stub every core read the TUI makes, and the writes it can trigger."""
     m = mocker.patch('things_mcp.tui.core')
+    mocker.patch('things_mcp.display.core', m)  # grouping (This Evening) lives in display
     m.today.return_value = [dict(t) for t in TODAY]
     m.inbox.return_value = list(INBOX)
     m.upcoming.return_value = []
@@ -323,7 +324,7 @@ async def test_cursor_skips_spacer_and_heading_rows(core):
 
 
 def test_logo_reads_things_3_and_fits_the_sidebar():
-    from things_mcp import tui_style
+    from things_mcp import style as tui_style
     rows = tui_style.logo().plain.split('\n')
     assert len(rows) == 3
     assert {len(r) for r in rows} == {30}
@@ -346,7 +347,7 @@ async def test_empty_list_shows_logo_state(core):
 
 
 def test_upcoming_groups_are_in_date_order():
-    from things_mcp.tui import group_upcoming
+    from things_mcp.display import group_upcoming
     later = (date.today() + timedelta(days=9)).isoformat()
     sooner = (date.today() + timedelta(days=1)).isoformat()
     groups = group_upcoming([{'uuid': 'a', 'start_date': later}, {'uuid': 'b', 'start_date': sooner}])
@@ -388,13 +389,13 @@ async def test_command_line_is_persistent_and_returns_focus(core):
 
 
 def test_row_title_marks_notes():
-    from things_mcp.tui_style import ICONS, row_title
+    from things_mcp.style import ICONS, row_title
     assert row_title({'title': 'A', 'type': 'to-do', 'notes': 'x'}).plain.endswith(ICONS['notes'])
     assert not row_title({'title': 'A', 'type': 'to-do'}).plain.endswith(ICONS['notes'])
 
 
 def test_where_cell_skips_group_and_shortens():
-    from things_mcp.tui_style import WHERE_WIDTH, where_cell
+    from things_mcp.style import WHERE_WIDTH, where_cell
     item = {'project_title': 'Kitchen renovation', 'heading_title': 'Design'}
     assert where_cell(item, omit='Kitchen renovation').plain == 'Design'
     long = where_cell({'area_title': 'A very long area name', 'project_title': 'And a long project'})
@@ -402,14 +403,14 @@ def test_where_cell_skips_group_and_shortens():
 
 
 def test_completed_and_canceled_titles_differ():
-    from things_mcp.tui_style import title_cell
+    from things_mcp.style import title_cell
     done = title_cell({'title': 'A', 'status': 'completed'})
     gone = title_cell({'title': 'A', 'status': 'canceled'})
     assert 'strike' not in str(done.style) and 'strike' in str(gone.style)
 
 
 def test_logbook_rows_omit_the_date():
-    from things_mcp.tui_style import info_cell
+    from things_mcp.style import info_cell
     item = {'status': 'completed', 'stop_date': '2026-01-05 10:00:00'}
     assert info_cell(item, 'logbook').plain == ''
     assert info_cell(item, 'search:x').plain != ''
