@@ -265,8 +265,8 @@ def logbook_cmd(period, project_ref, limit, offset, as_json, long):
 @list_options()
 def recent_cmd(period, limit, offset, as_json, long):
     """Open items created in the last PERIOD (default 1d), newest first."""
-    _print_items(core.recent(period), limit=limit, offset=offset, as_json=as_json, long=long,
-                 empty=f"Nothing created in the last {period}")
+    _print_items(display.without_headings(core.recent(period)), limit=limit, offset=offset,
+                 as_json=as_json, long=long, empty=f"Nothing created in the last {period}")
 
 
 # ---------------------------------------------------------------------------
@@ -580,8 +580,11 @@ def tag_cmd(refs, add, replace):
 def update_area_cmd(ref, title, tags):
     """Rename an area or set its tags (via AppleScript)."""
     uuid = resolve_ref(ref)
+    item = core.get(uuid) or {}
+    if item.get('type') != 'area':
+        raise ThingsError(f"'{item.get('title', ref)}' isn't an area — list areas with 'things areas' first.")
     core.update_area(uuid, title=title, tags=_split_tags(tags))
-    click.echo(f"Updated area {uuid}")
+    click.echo(f"Updated area '{item.get('title')}'")
 
 
 # ---------------------------------------------------------------------------

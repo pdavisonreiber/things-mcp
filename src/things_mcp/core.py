@@ -242,6 +242,10 @@ def tags() -> list:
 
 
 def tagged_items(tag: str) -> list:
+    """Open to-dos with ``tag``; an unknown tag has none (things.py would
+    raise ValueError for it)."""
+    if tag not in {t['title'] for t in tags()}:
+        return []
     return things.todos(tag=tag, include_items=True) or []
 
 

@@ -166,3 +166,26 @@ def test_open_passes_builtin_lists_through(mocker, run):
 def test_tag_usage(mocker, run):
     mocker.patch('things_mcp.core.tag_usage', return_value=[('shop', 2, 5)])
     assert run('tags', '--usage').output.strip() == '#shop: 2 open, 5 total'
+
+
+def test_tagged_with_unknown_tag_is_empty_not_an_error(mocker):
+    mocker.patch('things.tags', return_value=[{'title': 'shop'}])
+    todos = mocker.patch('things.todos')
+    result = CliRunner().invoke(cli.main, ['tagged', 'nosuchtag'])
+    assert result.exit_code == 0 and 'Nothing tagged #nosuchtag' in result.output
+    todos.assert_not_called()   # things.py raises ValueError for unknown tags
+
+
+def test_update_area_refuses_non_areas(mocker):
+    update = mocker.patch('things_mcp.core.update_area')
+    result = CliRunner().invoke(cli.main, ['update-area', 'AAAA1111', '--title', 'X'])
+    assert result.exit_code == 1 and "isn't an area" in result.output
+    update.assert_not_called()
+
+
+def test_recent_leaves_out_headings(mocker, run):
+    mocker.patch('things_mcp.core.recent', return_value=[
+        {'uuid': 'H1', 'title': 'A heading', 'type': 'heading'},
+        {'uuid': 'T1', 'title': 'A to-do', 'type': 'to-do', 'status': 'incomplete'}])
+    out = run('recent').output
+    assert 'A to-do' in out and 'A heading' not in out
