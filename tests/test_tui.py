@@ -307,9 +307,10 @@ async def test_slash_toggles_sidebar(core):
     async with app.run_test() as pilot:
         await _start(app, pilot)
         await pilot.press('slash')
-        assert not app.query_one('#sidebar').display
+        assert not app.query_one('#sidebar-pane').display   # logo and lists both go
+        assert app.query_one('#main').region.x == 0           # list takes the full width
         await pilot.press('slash')
-        assert app.query_one('#sidebar').display
+        assert app.query_one('#sidebar-pane').display
 
 
 async def test_write_errors_are_reported_not_raised(core):

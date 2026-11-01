@@ -767,10 +767,14 @@ class ThingsApp(App):
         self._ask('Go to list, project or area', go)
 
     def action_toggle_sidebar(self) -> None:
-        sidebar = self.query_one('#sidebar', OptionList)
-        sidebar.display = not sidebar.display
-        if not sidebar.display:
+        """Hide or show the whole sidebar (logo and lists), so the list can
+        use the full width (Things: ⌘/)."""
+        pane = self.query_one('#sidebar-pane')
+        pane.display = not pane.display
+        if not pane.display:
             self.query_one('#items', DataTable).focus()
+        # Redraw once the new width is laid out, so the selection bar spans it.
+        self.call_after_refresh(self.load_items, True)
 
     def action_find(self) -> None:
         def run_search(query: str) -> None:
