@@ -361,7 +361,7 @@ def test_logo_reads_things_3_and_fits_the_sidebar():
     from things_mcp import style
     rows = style.logo().plain.split('\n')
     assert len(rows) == 3
-    assert {len(r) for r in rows} == {30}
+    assert {len(r) for r in rows} == {32}
     assert rows[0].startswith('▀█▀')  # T
 
 
@@ -448,3 +448,20 @@ def test_logbook_rows_omit_the_date():
     item = {'status': 'completed', 'stop_date': '2026-01-05 10:00:00'}
     assert info_cell(item, 'logbook').plain == ''
     assert info_cell(item, 'search:x').plain != ''
+
+
+
+async def test_question_sits_on_its_own_line_above_the_entry(core):
+    app = ThingsApp()
+    async with app.run_test() as pilot:
+        await _start(app, pilot)
+        question = app.query_one('#command-question')
+        entry = app.query_one('#command-entry')
+        assert not question.display                 # idle: just the caret line
+        await pilot.press('s')
+        await pilot.pause()
+        assert question.display and question.region.y < entry.region.y
+        assert entry.region.x == question.region.x  # both start at the left
+        await pilot.press('escape')
+        await pilot.pause()
+        assert not question.display

@@ -113,13 +113,14 @@ class CommandInput(Input):
     BINDINGS = [Binding('enter', 'submit', 'OK'), Binding('escape', 'cancel', 'Cancel')]
 
     def action_cancel(self) -> None:
-        self.parent.cancel()
+        self.query_ancestor(CommandLine).cancel()
 
 
-class CommandLine(Horizontal):
-    """A persistent one-line prompt above the key bar, like a shell or the
-    Vim/Emacs command line. Idle, it shows a dim caret; asked a question, it
-    shows the question and takes the answer. Enter submits; Escape cancels."""
+class CommandLine(Vertical):
+    """A persistent prompt above the key bar, like a shell or the Vim/Emacs
+    command line. Idle, it's one line with a dim caret. Asked a question, the
+    question gets its own line and the answer is typed on the line below it.
+    Enter submits; Escape cancels."""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -128,8 +129,9 @@ class CommandLine(Horizontal):
 
     def compose(self) -> ComposeResult:
         yield Static(id='command-question')
-        yield Static(id='command-caret')
-        yield CommandInput(id='command-input', disabled=True)
+        with Horizontal(id='command-entry'):
+            yield Static(id='command-caret')
+            yield CommandInput(id='command-input', disabled=True)
 
     def on_mount(self) -> None:
         self._idle()
@@ -143,7 +145,7 @@ class CommandLine(Horizontal):
         self._return_focus = self.app.focused
         self._callback = callback
         self.add_class('active')
-        self.query_one('#command-question', Static).update(Text(question + ' ', style=style.MUTED))
+        self.query_one('#command-question', Static).update(Text(question, style=style.MUTED))
         self.query_one('#command-caret', Static).update(Text('› ', style=f'bold {style.AMBER}'))
         field = self.query_one(CommandInput)
         field.disabled = False
@@ -363,8 +365,10 @@ class ThingsApp(App):
         scrollbar-size-vertical: 1; scrollbar-background: {style.BG}; scrollbar-color: {style.RULE};
     }}
     Footer {{ background: {style.BG}; }}
-    CommandLine {{ height: 1; background: {style.BG}; padding: 0 1; }}  /* lines up with the key bar */
-    #command-question {{ width: auto; }}
+    CommandLine {{ height: auto; background: {style.BG}; padding: 0 1; }}  /* lines up with the key bar */
+    #command-question {{ height: auto; display: none; }}
+    CommandLine.active #command-question {{ display: block; }}
+    #command-entry {{ height: 1; }}
     #command-caret {{ width: 2; }}
     #command-input {{ width: 1fr; height: 1; background: {style.BG}; border: none; padding: 0; }}
     #command-input:disabled {{ background: {style.BG}; opacity: 100%; }}
