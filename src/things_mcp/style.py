@@ -351,8 +351,12 @@ def detail_card(item: dict, evening: bool = False) -> Text:
     deadline = _parse_day(item.get('deadline'))
     badge = deadline_badge(item.get('deadline'))
     if deadline and badge:
-        meta.append((Text(ICONS['deadline'], style=RED),
-                     f"Deadline {deadline:%a} {deadline.day} {deadline:%b} · {badge.plain[2:]}"))
+        label = f"Deadline {deadline:%a} {deadline.day} {deadline:%b}"
+        if deadline.year != date.today().year:
+            label += f" {deadline.year}"
+        if (deadline - date.today()).days <= 7:   # beyond a week the badge is just the date again
+            label += f" · {badge.plain[2:]}"
+        meta.append((Text(ICONS['deadline'], style=RED), label))
     where = where_text(item)
     if where:
         meta.append((icon('project'), where))

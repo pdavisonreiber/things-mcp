@@ -88,6 +88,22 @@ def _resolve_opt(ref: Optional[str]) -> Optional[str]:
     return resolve_ref(ref) if ref else None
 
 
+def _resolve_named(ref: Optional[str], kind: str) -> Optional[str]:
+    """Like _resolve_opt, but also accepts a project or area title (exact, any case)."""
+    if not ref:
+        return None
+    try:
+        return resolve_ref(ref)
+    except ThingsError:
+        candidates = core.projects() if kind == 'project' else core.areas()
+        matches = [c['uuid'] for c in candidates if (c.get('title') or '').casefold() == ref.strip().casefold()]
+        if len(matches) == 1:
+            return matches[0]
+        if len(matches) > 1:
+            raise ThingsError(f"Several {kind}s are called '{ref}'; use its number or UUID")
+        raise
+
+
 # ---------------------------------------------------------------------------
 # Output
 # ---------------------------------------------------------------------------
@@ -251,11 +267,11 @@ trash_cmd = _simple_list('trash', 'Trashed to-dos.')
 
 @main.command('logbook')
 @click.option('--period', '-p', default='7d', show_default=True, help="How far back, e.g. 3d, 2w, 1m, 1y.")
-@click.option('--project', 'project_ref', help='Only items from this project (number, UUID or prefix).')
+@click.option('--project', 'project_ref', help='Only items from this project (number, UUID, prefix or title).')
 @list_options(default_limit=50)
 def logbook_cmd(period, project_ref, limit, offset, as_json, long):
     """Completed and canceled items, newest first."""
-    items = core.logbook(period, _resolve_opt(project_ref))
+    items = core.logbook(period, _resolve_named(project_ref, 'project'))
     _print_items(items, list_key='logbook', group=display.group_logbook, limit=limit, offset=offset,
                  as_json=as_json, long=long, empty='Nothing logged in that period')
 
@@ -274,11 +290,11 @@ def recent_cmd(period, limit, offset, as_json, long):
 # ---------------------------------------------------------------------------
 
 @main.command('todos')
-@click.option('--project', 'project_ref', help='Only to-dos in this project.')
+@click.option('--project', 'project_ref', help='Only to-dos in this project (number, UUID, prefix or title).')
 @list_options()
 def todos_cmd(project_ref, limit, offset, as_json, long):
     """All open to-dos, optionally in one project."""
-    project = _resolve_opt(project_ref)
+    project = _resolve_named(project_ref, 'project')
     _print_items(core.todos(project), list_key='project' if project else '',
                  group=display.group_by_heading if project else None, limit=limit, offset=offset,
                  as_json=as_json, long=long, empty='No to-dos found')
@@ -327,11 +343,11 @@ def tagged_cmd(tag, limit, offset, as_json, long):
 
 
 @main.command('headings')
-@click.option('--project', 'project_ref', help='Only headings in this project.')
+@click.option('--project', 'project_ref', help='Only headings in this project (number, UUID, prefix or title).')
 @list_options()
 def headings_cmd(project_ref, limit, offset, as_json, long):
     """Headings, optionally in one project."""
-    _print_items(core.headings(_resolve_opt(project_ref)), limit=limit, offset=offset,
+    _print_items(core.headings(_resolve_named(project_ref, 'project')), limit=limit, offset=offset,
                  as_json=as_json, long=long, empty='No headings')
 
 
@@ -356,8 +372,8 @@ def search_cmd(query, limit, offset, as_json, long):
 @click.option('--stop-date', help="Completion date, e.g. '>=2026-01-01', 'past'.")
 @click.option('--deadline', help='YYYY-MM-DD, optionally with an operator.')
 @click.option('--tag')
-@click.option('--area', 'area_ref', help='Area (number, UUID or prefix).')
-@click.option('--project', 'project_ref', help='Project (number, UUID or prefix).')
+@click.option('--area', 'area_ref', help='Area (number, UUID, prefix or title).')
+@click.option('--project', 'project_ref', help='Project (number, UUID, prefix or title).')
 @click.option('--type', 'kind', type=click.Choice(['to-do', 'project', 'heading']))
 @click.option('--last', help="Created within, e.g. 3d, 1w.")
 @list_options()
@@ -366,7 +382,7 @@ def find_cmd(status, start_date, stop_date, deadline, tag, area_ref, project_ref
     """Search with filters (same as the MCP search_advanced tool)."""
     items = core.search_advanced(
         status=status, start_date=start_date, stop_date=stop_date, deadline=deadline,
-        tag=tag, area=_resolve_opt(area_ref), project=_resolve_opt(project_ref),
+        tag=tag, area=_resolve_named(area_ref, 'area'), project=_resolve_named(project_ref, 'project'),
         type=kind, last=last,
     )
     _print_items(items, limit=limit, offset=offset, as_json=as_json, long=long, empty='No matches')
@@ -503,8 +519,10 @@ def update_cmd(ref, title, notes, when, deadline, tags, add_tags, list_title, li
         core.update_project(uuid, **changes)
     elif kind == 'to-do':
         core.update_todo(uuid, **changes)
+    elif kind == 'area':
+        raise ThingsError(f"'{item.get('title')}' is an area; use update-area for areas.")
     else:
-        raise ThingsError(f"'{item.get('title')}' is a {kind}; use update-area for areas.")
+        raise ThingsError(f"'{item.get('title')}' is a {kind}; only to-dos and projects can be updated.")
     _sent(f"Updated '{item.get('title')}'")
 
 

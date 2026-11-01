@@ -126,3 +126,19 @@ async def test_tui_loads_sidebar_and_today(database):
         assert order.index('project:PROJ-LAUNCH') == order.index('area:AREA-WORK') + 1
         app.select_source('area:AREA-HOME')
         assert list(app.items) == ['TODO-MILK']
+
+
+def test_project_and_area_options_accept_titles():
+    assert titles(things('todos', '--project', 'launch')) == ['Write brief', 'Book venue']
+    assert titles(things('find', '--area', 'Home')) == ['Buy milk']
+    result = CliRunner().invoke(cli.main, ['todos', '--project', 'No such project'])
+    assert result.exit_code != 0 and "No item matches 'No such project'" in result.output
+
+
+def test_update_on_tag_or_area_gives_the_right_hint():
+    things('tags')
+    out = CliRunner().invoke(cli.main, ['update', '1', '--title', 'x']).output
+    assert 'is a tag; only to-dos and projects can be updated' in out
+    things('areas')
+    out = CliRunner().invoke(cli.main, ['update', '1', '--title', 'x']).output
+    assert 'is an area; use update-area' in out

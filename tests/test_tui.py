@@ -8,6 +8,7 @@ pytest.importorskip('textual')
 from textual.widgets import DataTable, Input, OptionList  # noqa: E402
 
 from things_mcp.tui import CommandLine, HelpScreen, ThingsApp  # noqa: E402
+from things_mcp import style  # noqa: E402
 from things_mcp.style import ICONS  # noqa: E402
 
 TODAY = [
@@ -529,3 +530,13 @@ async def test_long_titles_are_shortened_to_fit(core):
         assert table.virtual_size.width <= table.size.width
         assert str(table.get_cell('L', 'title')).endswith('…')
         assert '#shop' in str(table.get_cell('L', 'info'))   # details stay visible
+
+
+def test_detail_card_deadline_shows_relative_part_only_within_a_week():
+    soon = date.today() + timedelta(days=3)
+    later = date.today() + timedelta(days=30)
+    near = style.detail_card({'title': 'x', 'type': 'to-do', 'deadline': soon.isoformat()}).plain
+    far = style.detail_card({'title': 'x', 'type': 'to-do', 'deadline': later.isoformat()}).plain
+    assert f"Deadline {soon:%a} {soon.day} {soon:%b}" in near and '· 3 days left' in near
+    far_line = next(line for line in far.splitlines() if 'Deadline' in line)
+    assert '·' not in far_line and f"{later.day} {later:%b}" in far_line
