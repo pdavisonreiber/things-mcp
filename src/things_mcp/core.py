@@ -286,10 +286,28 @@ def search_advanced(status=None, start_date=None, stop_date=None, deadline=None,
         "last": last,
     }
     search_params = {k: v for k, v in filters.items() if v}
+    if area and not project and type in (None, 'to-do'):
+        return _todos_in_area(area, search_params)
     if type:
         # things.todos() hardcodes type="to-do", so use things.tasks()
         return things.tasks(type=type, include_items=True, **search_params) or []
     return things.todos(include_items=True, **search_params) or []
+
+
+def _todos_in_area(area: str, search_params: dict) -> list:
+    """To-dos in an area, like the Things area view: those filed directly in it
+    plus those in its projects (and their headings). things.py's area filter
+    only matches the first kind. Projects of any status are included so that
+    searches for completed to-dos still find them."""
+    rest = {k: v for k, v in search_params.items() if k != 'area'}
+    items = list(things.todos(area=area, include_items=True, **rest) or [])
+    seen = {t['uuid'] for t in items}
+    for p in things.tasks(type='project', area=area, status=None) or []:
+        for t in things.todos(project=p['uuid'], include_items=True, **rest) or []:
+            if t['uuid'] not in seen:
+                seen.add(t['uuid'])
+                items.append(t)
+    return items
 
 
 def recent(period: str) -> list:

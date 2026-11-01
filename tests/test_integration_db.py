@@ -142,3 +142,10 @@ def test_update_on_tag_or_area_gives_the_right_hint():
     things('areas')
     out = CliRunner().invoke(cli.main, ['update', '1', '--title', 'x']).output
     assert 'is an area; use update-area' in out
+
+
+def test_find_by_area_includes_todos_in_its_projects():
+    # Work has no loose to-dos; Write brief is in its Launch project and
+    # Book venue under a Launch heading.
+    assert titles(things('find', '--area', 'Work')) == ['Write brief', 'Book venue']
+    assert titles(things('find', '--area', 'Home')) == ['Buy milk']

@@ -337,7 +337,7 @@ async def search_advanced(
             operator, e.g. '>=2024-01-01', or 'past'/'future')
         deadline: Filter by deadline (YYYY-MM-DD)
         tag: Filter by tag
-        area: Filter by area UUID
+        area: Filter by area UUID (includes to-dos in the area's projects)
         project: Filter by project UUID (includes items under the project's headings)
         type: Filter by item type (to-do, project, heading)
         last: Filter by creation date (e.g., '3d' for last 3 days, '1w' for last week, '1y' for last year)

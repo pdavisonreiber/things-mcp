@@ -12,7 +12,7 @@ lists aren't touched. Delete that area at the end (step 6).
 
 ```bash
 git clone https://github.com/pdavisonreiber/things-mcp && cd things-mcp
-uv sync --extra tui
+uv sync --extra tui --extra test   # one sync with both; a later sync with only one removes the other
 alias things='uv run things'
 ```
 
@@ -24,6 +24,11 @@ alias things='uv run things'
 > Writes are fire-and-forget: a command returns once macOS has handed the URL
 > to Things. If a listing straight after a write doesn't show the change, run
 > it again a second later.
+>
+> Numbers refer to the **last listing of any kind**. Running something like
+> `things tags` or `things areas` in between renumbers them, so `things done 1`
+> would then point at a tag (the CLI refuses rather than changing it). When in
+> doubt, list again just before a write.
 
 ## 1. Create the test area and project
 
@@ -33,13 +38,17 @@ alias things='uv run things'
 - [ ] `things areas`, note the number next to **CLI Test** (say `3`).
 - [ ] `things add-project Test project --area-id 3 --todo One --todo Two`
       creates the project inside the area with two to-dos.
+- [ ] `things todos --project "test project"` (the title, any case) lists One
+      and Two; `things find --area "CLI Test"` lists them too.
 - [ ] `things add First test -w today -c "Step A" -c "Step B" --list "Test project"`
       adds a to-do to Today, inside the project, with a two-item checklist.
 
 ## 2. CLI writes
 
 Run `things today` first so the numbers below refer to its rows; find
-**First test** in the list and use its number in place of `N`.
+**First test** in the list and use its number in place of `N`. After
+`things schedule tomorrow N` it leaves Today, so if you list anything else in
+between, take its number from `things upcoming` instead.
 
 - [ ] `things done N`: ticked in Things; shows in `things logbook`.
 - [ ] `things reopen N` (the number from `things logbook`): open again.
@@ -76,10 +85,10 @@ use that for the checks below.
 - [ ] Edit something **in the Things app** while the TUI is open: the TUI
       refreshes on its own within a couple of seconds.
 
-## 4. Assumptions to confirm
+## 4. Assumptions to recheck
 
-These rely on how Things stores data internally, which couldn't be checked
-without a Mac.
+These rely on how Things stores data internally. All four were confirmed on a
+Mac (Things 3, November 2026); recheck them after a Things update.
 
 - [ ] **This Evening.** In Things, move a to-do to This Evening. It should
       appear under **This Evening** in both `things today` and the TUI. *(Read
@@ -99,7 +108,10 @@ without a Mac.
 ## 6. Clean up
 
 - [ ] In Things, delete the **CLI Test** area (this deletes its project and
-      to-dos too). Empty the Trash if you like.
+      to-dos too). Empty the Trash if you like. Or from the terminal, using
+      the UUID `add-area` printed:
+      `osascript -e 'tell application "Things3" to delete area id "<uuid>"'`
+      (the area goes; its project and to-dos move to the Trash).
 
 ## Reporting problems
 

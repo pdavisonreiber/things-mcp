@@ -85,7 +85,7 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
 
 6. **src/things_mcp/display.py** - List grouping shared by CLI and TUI (`group_today` with This Evening, `group_upcoming`, `group_by_location`, `group_logbook`, `group_by_heading`, `without_headings`) and `detail()` text. Rows use `project_title`/`area_title`/`heading_title` from things.py, so lists need no per-item lookups.
 
-7. **tests/** - Test suite (285 tests; CI runs them on Python 3.12 and 3.13 via `.github/workflows/tests.yml`)
+7. **tests/** - Test suite (286 tests; CI runs them on Python 3.12 and 3.13 via `.github/workflows/tests.yml`)
    - **conftest.py** - Pytest fixtures and mock data
    - **_helpers.py** - `tool_text()` reads the text channel from a `ToolResult` (or a plain-string result) so text assertions work across both return shapes
    - **test_url_scheme.py** - Tests for URL construction
