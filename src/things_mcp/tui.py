@@ -45,6 +45,7 @@ from .core import ThingsError
 REFRESH_AFTER_WRITE = 1.0   # seconds to wait before re-reading after a write
 DB_POLL_INTERVAL = 2.0      # seconds between database change checks
 HEADER_PREFIX = 'hdr:'      # row keys for group headings in the item table
+TITLE_MAX = 50              # longest title shown in a row before it's shortened with …
 
 THEME = Theme(
     name='things-dark',
@@ -168,6 +169,7 @@ class CommandLine(Vertical):
             self._return_focus.focus()
         if callback:
             callback(answer)
+        self.app.call_later(self.app.refresh_if_pending)
 
     def _idle(self) -> None:
         self._callback = None
@@ -353,7 +355,7 @@ class ThingsApp(App):
     #main {{ width: 1fr; padding: 0; }}  /* no side padding: selection spans the full width */
     #banner {{ height: 2; padding: 1 0 0 3; }}
     #items {{
-        height: 2fr; background: {style.BG}; margin-top: 1;
+        height: 2fr; background: {style.BG}; margin-top: 1; overflow-x: hidden;
         scrollbar-size-vertical: 1; scrollbar-background: {style.BG}; scrollbar-color: {style.RULE};
     }}
     #items > .datatable--cursor {{ background: {style.BLUE} 25%; text-style: none; }}
@@ -448,6 +450,9 @@ class ThingsApp(App):
         self.evening: set = set()
         self.row_group: dict = {}   # uuid -> the group heading the row sits under
         self._last_row = 0
+        self._groups: list = []           # the current list's groups, kept for re-layout on resize
+        self._lingering: dict = {}        # uuid -> item completed/canceled here, kept in place (as Things does)
+        self._refresh_pending = False     # a refresh that waited for a pop-up or prompt to close
         self._db_stamp = self._stamp()
 
     # -- layout --------------------------------------------------------------
@@ -467,6 +472,11 @@ class ThingsApp(App):
         yield CommandLine(id='command')
         yield Footer()
 
+    @property
+    def command_line(self) -> 'CommandLine':
+        # Looked up on the main screen, so this works while a pop-up is open.
+        return self.screen_stack[0].query_one(CommandLine)
+
     def on_mount(self) -> None:
         self.register_theme(THEME)
         self.theme = THEME.name
@@ -476,12 +486,17 @@ class ThingsApp(App):
         if self.db_path:
             self.set_interval(DB_POLL_INTERVAL, self.check_database)
 
+    def on_resize(self, event) -> None:
+        if self.current is not None and self._groups:
+            self.call_after_refresh(self.render_items, True)
+
     @staticmethod
     def _add_columns(table: DataTable) -> None:
         table.add_column('', key='pad', width=1)  # left inset that the selection still covers
-        table.add_column('Title', key='title')
-        table.add_column('Where', key='where')
-        table.add_column('Info', key='info')
+        # Blank labels: the header is hidden, but a label still sets a minimum width.
+        table.add_column('', key='title')
+        table.add_column('', key='where')
+        table.add_column('', key='info')
 
     def _colour_key(self) -> str:
         """The palette key for the current list (projects/areas share one)."""
@@ -570,6 +585,8 @@ class ThingsApp(App):
             return
         if remember and self.current and self.current.key != key:
             self.history.append(self.current.key)
+        if self.current is None or self.current.key != key:
+            self._lingering = {}
         self.current = source
         self.sub_title = source.label
         self._highlight_sidebar(key)
@@ -580,8 +597,7 @@ class ThingsApp(App):
     def load_items(self, keep_cursor: bool = False) -> None:
         if self.current is None:
             return
-        table = self.query_one('#items', DataTable)
-        selected = self.selected_uuid() if keep_cursor else None
+        previous = self._display_order()
         try:
             items = self.current.fetch()
             groups = self.current.group(items)
@@ -589,15 +605,55 @@ class ThingsApp(App):
         except Exception as e:
             self.notify(str(e), severity='error')
             items, groups, self.evening = [], [], set()
-        self.items = {i['uuid']: i for i in items if i.get('uuid')}
+        groups = self._merge_lingering(groups, previous)
+        self.items = {i['uuid']: i for _, members in groups for i in members if i.get('uuid')}
+        self._groups = groups
+        self.render_items(keep_cursor)
+
+    def _display_order(self) -> list:
+        """(uuid, group label) for every item row, in the order shown."""
+        return [(i['uuid'], label) for label, members in self._groups for i in members if i.get('uuid')]
+
+    def _merge_lingering(self, groups: list, previous: list) -> list:
+        """Put items completed/canceled here back where they were, if a
+        re-read dropped them (things.py only returns open items)."""
+        present = {i['uuid'] for _, members in groups for i in members if i.get('uuid')}
+        missing = [u for u in self._lingering if u not in present]
+        if not missing:
+            return groups
+        groups = [(label, list(members)) for label, members in groups]
+        for uuid in missing:
+            label = next((g for u, g in previous if u == uuid), None)
+            order = [u for u, g in previous if g == label]
+            target = next((m for g, m in groups if g == label), None)
+            if target is None:
+                target = []
+                groups.append((label, target))
+            # after the nearest earlier neighbour that is still there
+            before = order[:order.index(uuid)] if uuid in order else []
+            pos = 0
+            for u in reversed(before):
+                idx = next((n for n, it in enumerate(target) if it.get('uuid') == u), None)
+                if idx is not None:
+                    pos = idx + 1
+                    break
+            target.insert(pos, self._lingering[uuid])
+        return groups
+
+    def render_items(self, keep_cursor: bool = True) -> None:
+        """Draw the current groups, sizing columns to fit the table's width."""
+        table = self.query_one('#items', DataTable)
+        selected = self.selected_uuid() if keep_cursor else None
+        selected_row = table.cursor_row if keep_cursor else 0
         self.query_one('#banner', Static).update(
             style.list_banner(self.current.label, self.current.key, len(self.items)))
+        self.row_group = {uuid: label for uuid, label in self._display_order()}
+        self._fit_columns(table)
         # Rebuild the columns too, so widths fit this list rather than the
         # widest list seen so far.
         table.clear(columns=True)
         self._add_columns(table)
-        self.row_group = {}
-        for n, (label, members) in enumerate(groups):
+        for n, (label, members) in enumerate(self._groups):
             if not members:
                 continue
             if label:
@@ -607,10 +663,12 @@ class ThingsApp(App):
                               key=f"{HEADER_PREFIX}{n}")
             for item in members:
                 if item.get('uuid'):
-                    self.row_group[item['uuid']] = label
                     table.add_row(*self._cells(item), key=item['uuid'])
         if selected in self.items:
             table.move_cursor(row=table.get_row_index(selected))
+        elif keep_cursor and table.row_count:
+            # The selected item left the list: stay at the same position.
+            table.move_cursor(row=min(selected_row, table.row_count - 1))
         empty = not self.items
         table.display = not empty
         self.query_one('#empty', Static).display = empty
@@ -618,15 +676,32 @@ class ThingsApp(App):
             self.query_one('#empty', Static).update(style.empty_state(self._colour_key()))
         self.show_detail()
 
+    def _fit_columns(self, table: DataTable) -> None:
+        """Work out how wide titles and locations may be so a row fits the
+        table without a horizontal scrollbar; the details column is kept whole."""
+        width = table.size.width or (self.size.width - (34 if self.query_one('#sidebar-pane').display else 0))
+        key = self.current.key if self.current else ''
+        items = list(self.items.values())
+        info = max((style.info_cell(i, key, evening=i['uuid'] in self.evening).cell_len for i in items), default=0)
+        where = 0 if key.startswith('project:') else max(
+            (style.where_cell(i, omit=self.row_group.get(i['uuid'])).cell_len for i in items), default=0)
+        overhead = 3 + 2 * 3 + 1          # inset column, three cell paddings, scrollbar
+        room = width - overhead - info
+        if room - where < 20:              # titles come first: shrink, then drop, locations
+            where = max(0, room - 20) if room - 20 >= 8 else 0
+        # Cap titles too, so one long title doesn't push every row's details right.
+        self._title_width = max(12, min(room - where, TITLE_MAX))
+        self._where_width = where
+
     def _cells(self, item: dict) -> list:
         key = self.current.key if self.current else ''
-        return [
-            '',
-            style.row_title(item),
-            (style.where_cell(item, omit=self.row_group.get(item.get('uuid')))
-             if not key.startswith('project:') else Text('')),
-            style.info_cell(item, key, evening=item.get('uuid') in self.evening),
-        ]
+        title = style.row_title(item)
+        title.truncate(getattr(self, '_title_width', 10_000), overflow='ellipsis')
+        where_width = getattr(self, '_where_width', style.WHERE_WIDTH)
+        where = (style.where_cell(item, omit=self.row_group.get(item.get('uuid')))
+                 if where_width and not key.startswith('project:') else Text(''))
+        where.truncate(where_width, overflow='ellipsis')
+        return ['', title, where, style.info_cell(item, key, evening=item.get('uuid') in self.evening)]
 
     def _redraw_row(self, uuid: str) -> None:
         table = self.query_one('#items', DataTable)
@@ -697,17 +772,31 @@ class ThingsApp(App):
         return tuple(stamps)
 
     def check_database(self) -> None:
-        """Refresh when Things has written to its database since last check."""
+        """Refresh when Things has written to its database since last check,
+        or when an earlier refresh had to wait."""
         stamp = self._stamp()
         if stamp != self._db_stamp:
             self._db_stamp = stamp
             self.refresh_data()
+        elif self._refresh_pending:
+            self.refresh_data()
 
     def refresh_data(self) -> None:
-        if self.query_one(CommandLine).active:
-            return  # don't redraw while a question is open; the next poll will catch up
+        """Re-read everything. Waits (rather than redrawing underneath) while a
+        pop-up or a prompt is open; the next check, or closing the prompt,
+        runs it."""
+        if not self.is_running:
+            return
+        if self.screen is not self.screen_stack[0] or self.command_line.active:
+            self._refresh_pending = True
+            return
+        self._refresh_pending = False
         self.load_sidebar()
         self.load_items(keep_cursor=True)
+
+    def refresh_if_pending(self) -> None:
+        if self._refresh_pending:
+            self.refresh_data()
 
     def action_refresh(self) -> None:
         self.refresh_data()
@@ -778,7 +867,7 @@ class ThingsApp(App):
         if not pane.display:
             self.query_one('#items', DataTable).focus()
         # Redraw once the new width is laid out, so the selection bar spans it.
-        self.call_after_refresh(self.load_items, True)
+        self.call_after_refresh(self.render_items, True)
 
     def action_find(self) -> None:
         def run_search(query: str) -> None:
@@ -787,6 +876,7 @@ class ThingsApp(App):
             self.sources[source.key] = source
             if self.current:
                 self.history.append(self.current.key)
+            self._lingering = {}
             self.current = source
             self.sub_title = source.label
             self.query_one('#sidebar', OptionList).highlighted = None
@@ -798,12 +888,17 @@ class ThingsApp(App):
         self.push_screen(HelpScreen())
 
     def action_open_in_things(self) -> None:
+        """Show the selected item in Things; with nothing selected, the list
+        itself (a search opens Things' own search)."""
         item = self.selected_item()
-        target = item['uuid'] if item else (self.current.key if self.current else 'today')
-        if ':' in target:
-            target = target.split(':', 1)[1]
+        key = self.current.key if self.current else 'today'
         try:
-            core.show_in_app(target)
+            if item:
+                core.show_in_app(item['uuid'])
+            elif key.startswith('search:'):
+                core.search_in_app(key.split(':', 1)[1])
+            else:
+                core.show_in_app(key.split(':', 1)[1] if ':' in key else key)
         except Exception as e:
             self.notify(f"Couldn't open Things: {e}", severity='error')
 
@@ -839,12 +934,18 @@ class ThingsApp(App):
         def done(answer: Optional[str]) -> None:
             if answer is not None and (answer or allow_empty):
                 then(answer)
-        self.query_one(CommandLine).ask(question, done, value, placeholder)
+        self.command_line.ask(question, done, value, placeholder)
 
     def _change(self, item: dict, message: str, local: Optional[dict] = None, **changes) -> None:
         """Send a change for one item; on success apply ``local`` to the row."""
         if self._write(lambda: core.update_items([item['uuid']], **changes), message) and local:
             item.update(local)
+            # Like Things, a completed or canceled item stays where it is
+            # (ticked) until you leave the list, rather than vanishing.
+            if item.get('status') in ('completed', 'canceled'):
+                self._lingering[item['uuid']] = item
+            else:
+                self._lingering.pop(item['uuid'], None)
             self._redraw_row(item['uuid'])
             self.show_detail()
 

@@ -465,3 +465,67 @@ async def test_question_sits_on_its_own_line_above_the_entry(core):
         await pilot.press('escape')
         await pilot.pause()
         assert not question.display
+
+
+# -- regressions found by exploratory UI testing ------------------------------
+
+async def test_completed_item_stays_in_place_after_refresh(core):
+    """Like Things, a completed item stays (ticked) until you leave the list,
+    even though the re-read no longer returns it."""
+    app = ThingsApp()
+    async with app.run_test() as pilot:
+        await _start(app, pilot)
+        await pilot.press('k')
+        core.today.return_value = [dict(t) for t in TODAY if t['uuid'] != 't1']
+        app.refresh_data()
+        await pilot.pause()
+        assert _titles(app)[0] == 'Buy milk' and _mark(app, 't1') == DONE
+        await pilot.press('1')            # leaving the list lets it go
+        await pilot.press('2')
+        await pilot.pause()
+        assert 't1' not in app.items
+
+
+async def test_refresh_waits_for_open_prompt_then_runs(core):
+    app = ThingsApp()
+    async with app.run_test() as pilot:
+        await _start(app, pilot)
+        await pilot.press('s')
+        calls = core.today.call_count
+        app.refresh_data()
+        assert core.today.call_count == calls      # not redrawn under the prompt
+        await pilot.press('escape')
+        await pilot.pause()
+        assert core.today.call_count > calls       # ran once the prompt closed
+
+
+async def test_refresh_after_shutdown_is_ignored(core):
+    app = ThingsApp()
+    async with app.run_test() as pilot:
+        await _start(app, pilot)
+    app.refresh_data()   # a timer firing after quit must not raise
+
+
+async def test_open_in_things_on_empty_search_opens_things_search(core):
+    core.search.return_value = []
+    app = ThingsApp()
+    async with app.run_test() as pilot:
+        await _start(app, pilot)
+        await pilot.press('f')
+        await _answer(app, pilot, 'zzz')
+        await pilot.press('ctrl+o')
+        core.search_in_app.assert_called_once_with('zzz')
+        core.show_in_app.assert_not_called()
+
+
+async def test_long_titles_are_shortened_to_fit(core):
+    core.today.return_value = [{'uuid': 'L', 'type': 'to-do', 'status': 'incomplete',
+                                'title': 'word ' * 60, 'deadline': '2030-01-01', 'tags': ['shop']}]
+    app = ThingsApp()
+    async with app.run_test(size=(90, 30)) as pilot:
+        await _start(app, pilot)
+        await pilot.pause()
+        table = app.query_one('#items', DataTable)
+        assert table.virtual_size.width <= table.size.width
+        assert str(table.get_cell('L', 'title')).endswith('…')
+        assert '#shop' in str(table.get_cell('L', 'info'))   # details stay visible
