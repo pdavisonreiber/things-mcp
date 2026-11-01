@@ -361,7 +361,7 @@ def test_logo_reads_things_3_and_fits_the_sidebar():
     from things_mcp import style
     rows = style.logo().plain.split('\n')
     assert len(rows) == 3
-    assert {len(r) for r in rows} == {32}
+    assert {len(r) for r in rows} == {31}
     assert rows[0].startswith('▀█▀')  # T
 
 

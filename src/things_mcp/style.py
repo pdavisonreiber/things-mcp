@@ -102,13 +102,13 @@ LOGO_GLYPHS = [_half_blocks(b) for b in LOGO_PIXELS]
 
 
 def logo() -> Text:
-    """THINGS 3 in amber: 1 column between letters and 4 before the 3, making
-    it 32 wide so it fills the sidebar with equal space on each side."""
+    """THINGS 3 in amber: 1 column between letters and 3 before the 3
+    (31 wide)."""
     t = Text(style=f'bold {AMBER}')
     for row in range(3):
         for n, glyph in enumerate(LOGO_GLYPHS):
             if n:
-                t.append('    ' if n == len(LOGO_GLYPHS) - 1 else ' ')
+                t.append('   ' if n == len(LOGO_GLYPHS) - 1 else ' ')
             t.append(glyph[row])
         if row < 2:
             t.append('\n')
