@@ -173,6 +173,12 @@ def upcoming() -> list:
     return filter_someday_project_tasks(things.upcoming(include_items=True) or [])
 
 
+def tomorrow() -> list:
+    """Upcoming to-dos whose start date is tomorrow."""
+    day = (datetime.now() + timedelta(days=1)).date().isoformat()
+    return [i for i in upcoming() if str(i.get('start_date') or '')[:10] == day]
+
+
 def anytime() -> list:
     return filter_someday_project_tasks(things.anytime(include_items=True) or [])
 

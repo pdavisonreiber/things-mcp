@@ -210,7 +210,7 @@ def info_cell(item: dict, list_key: str, evening: bool = False) -> Text:
         parts.append(icon('evening'))
     elif start == date.today() and list_key != 'today':
         parts.append(icon('today'))
-    elif start and start > date.today() and list_key != 'upcoming':
+    elif start and start > date.today() and list_key not in ('upcoming', 'tomorrow'):
         parts.append(Text(f"{ICONS['upcoming']} {short_day(start)}", style=MUTED))
 
     badge = deadline_badge(item.get('deadline'))

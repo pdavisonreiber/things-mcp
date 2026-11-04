@@ -45,9 +45,29 @@ def test_today_lists_numbered_rows_with_summary(mocker, run):
     assert all(line == line.rstrip() for line in lines)  # no trailing padding when piped
 
 
-def test_no_command_shows_today(mocker, run):
+def test_no_command_shows_today_when_not_a_terminal(mocker, run):
     mocker.patch('things_mcp.core.today', return_value=TODOS[:1])
     assert 'Buy milk' in run().output
+
+
+def test_no_command_opens_tui_in_a_terminal(mocker, run):
+    mocker.patch('things_mcp.cli._interactive', return_value=True)
+    tui = mocker.patch('things_mcp.tui.run')
+    run()
+    tui.assert_called_once()
+
+
+def test_tomorrow_lists_only_tomorrows_todos(mocker, run):
+    from datetime import date, timedelta
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    later = (date.today() + timedelta(days=5)).isoformat()
+    mocker.patch('things.upcoming', return_value=[
+        {'uuid': 'T1', 'title': 'Dentist', 'type': 'to-do', 'status': 'incomplete', 'start_date': tomorrow},
+        {'uuid': 'T2', 'title': 'Later thing', 'type': 'to-do', 'status': 'incomplete', 'start_date': later},
+    ])
+    mocker.patch('things_mcp.core.filter_someday_project_tasks', side_effect=lambda items: items)
+    output = run('tomorrow').output
+    assert 'Dentist' in output and 'Later thing' not in output
 
 
 def test_empty_list_message(mocker, run):

@@ -145,8 +145,7 @@ Like the MCP server, it runs on the Mac where Things 3 is installed and needs "E
 ### CLI
 
 ```bash
-things                      # Today (same as: things today)
-things inbox                # also: upcoming, anytime, someday, trash
+things today                # also: tomorrow, inbox, upcoming, anytime, someday, trash
 things logbook -p 2w        # completed and canceled in the last 2 weeks
 things recent 3d            # open items created in the last 3 days
 things projects             # also: areas, tags, headings, todos --project 2
@@ -169,8 +168,10 @@ things open today           # reveal a list or item in the Things app
 ### TUI
 
 ```bash
-things tui      # or: things-tui
+things          # or: things tui, things-tui
 ```
+
+Bare `things` opens the TUI only when run in a terminal; piped or run from a script, it prints Today instead.
 
 The layout follows the Things Mac app: the sidebar is grouped the same way (Inbox / Today, Upcoming, Anytime, Someday / Logbook, Trash / projects / areas with their projects nested beneath), Today ends with a **This Evening** section, Upcoming and the Logbook are grouped by date, Anytime and Someday by project, and projects by heading. A detail pane stands in for Things' inline to-do card.
 

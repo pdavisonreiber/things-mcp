@@ -20,6 +20,7 @@ import json
 import os
 import sqlite3
 import subprocess
+import sys
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -217,18 +218,27 @@ class _Group(click.Group):
             raise click.ClickException(f"Things rejected the command: {detail}")
 
 
+def _interactive() -> bool:
+    """True when run from a terminal (not piped or driven by a script/agent)."""
+    return sys.stdin.isatty() and sys.stdout.isatty()
+
+
 @click.group(cls=_Group, invoke_without_command=True,
              context_settings={'help_option_names': ['-h', '--help']})
 @click.version_option(package_name='things-mcp')
 @click.pass_context
 def main(ctx):
-    """Things 3 from the command line. With no command, shows Today.
+    """Things 3 from the command line. With no command, opens the TUI
+    (or shows Today when not run in a terminal).
 
     Refer to items by the number shown in the last listing, a UUID, or a
     UUID prefix.
     """
     if ctx.invoked_subcommand is None:
-        ctx.invoke(today_cmd)
+        if _interactive():
+            ctx.invoke(tui_cmd)
+        else:
+            ctx.invoke(today_cmd)
 
 
 # ---------------------------------------------------------------------------
@@ -259,6 +269,7 @@ def _simple_list(name: str, help_text: str):
 
 inbox_cmd = _simple_list('inbox', 'To-dos in the Inbox.')
 today_cmd = _simple_list('today', 'To-dos in Today (excluding Someday projects).')
+tomorrow_cmd = _simple_list('tomorrow', 'To-dos scheduled for tomorrow (excluding Someday projects).')
 upcoming_cmd = _simple_list('upcoming', 'Scheduled to-dos (excluding Someday projects).')
 anytime_cmd = _simple_list('anytime', 'To-dos in Anytime (excluding Someday projects).')
 someday_cmd = _simple_list('someday', 'To-dos in Someday, including those in Someday projects.')
