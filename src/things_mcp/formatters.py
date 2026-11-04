@@ -112,6 +112,9 @@ def format_todo(todo: dict) -> str:
 
     if todo.get('start_date'):
         todo_text += f"\nStart Date: {todo['start_date']}"
+    if todo.get('repeating'):
+        todo_text += ("\nRepeating: next occurrence (Things creates it on the start date; "
+                      "it can't be completed or rescheduled before then)")
     if todo.get('reminder_time'):
         todo_text += f"\nReminder: {todo['reminder_time']}"
     if todo.get('deadline'):

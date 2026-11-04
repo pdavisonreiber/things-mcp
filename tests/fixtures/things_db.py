@@ -26,7 +26,7 @@ CREATE TABLE TMTask (
     deadlineSuppressionDate INTEGER, reminderTime INTEGER, stopDate REAL,
     creationDate REAL, userModificationDate REAL, "index" INTEGER, todayIndex INTEGER,
     area TEXT, project TEXT, heading TEXT, trashed INTEGER DEFAULT 0,
-    rt1_recurrenceRule BLOB, rt1_instanceCreationPaused INTEGER,
+    rt1_recurrenceRule BLOB, rt1_instanceCreationPaused INTEGER, rt1_nextInstanceStartDate INTEGER,
     checklistItemsCount INTEGER DEFAULT 0, openChecklistItemsCount INTEGER DEFAULT 0
 );
 """
@@ -90,6 +90,16 @@ def build(path, token='test-token') -> dict:
          created=now - timedelta(days=90))
     task('TODO-OLD', 'Ancient chore', status=COMPLETED, stopped=now - timedelta(days=40))
     task('TODO-TRASH', 'Binned', trashed=1)
+
+    # Repeating to-dos are templates: things.py skips them; the next occurrence
+    # only exists as rt1_nextInstanceStartDate until Things creates it.
+    task('TODO-BINS', 'Put the bins out', start=ANYTIME)
+    task('TODO-PAUSED', 'Paused repeat', start=ANYTIME)
+    db.executemany(
+        'UPDATE TMTask SET rt1_recurrenceRule = ?, rt1_instanceCreationPaused = ?, '
+        'rt1_nextInstanceStartDate = ? WHERE uuid = ?',
+        [(b'rule', 0, things_date(today + timedelta(days=1)), 'TODO-BINS'),
+         (b'rule', 1, things_date(today + timedelta(days=1)), 'TODO-PAUSED')])
 
     db.execute("INSERT INTO TMTaskTag VALUES ('TODO-MILK', 'TAG-ERRAND')")
     db.executemany(

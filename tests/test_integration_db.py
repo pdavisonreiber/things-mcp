@@ -50,9 +50,29 @@ def test_today_excludes_someday_project_tasks():
 
 
 def test_upcoming_and_someday():
-    assert titles(things('upcoming')) == ['Renew passport']
+    # The repeating to-do's next occurrence (tomorrow) comes first; paused repeats are left out.
+    assert titles(things('upcoming')) == ['Put the bins out ↻', 'Renew passport']
     someday = titles(things('someday'))
     assert 'Someday thing' in someday and 'Learn Japanese' in someday
+
+
+def test_tomorrow_includes_next_repeat():
+    assert titles(things('tomorrow')) == ['Put the bins out ↻']
+
+
+def test_repeating_template_cant_be_completed_or_rescheduled(sent):
+    things('tomorrow')
+    for args in (('done', '1'), ('schedule', 'today', '1')):
+        result = CliRunner().invoke(cli.main, list(args))
+        assert result.exit_code != 0 and 'repeating to-do' in result.output
+    assert not sent.called
+    things('update', '1', '--notes', 'Recycling week')  # non-scheduling edits are fine
+    assert sent.called
+
+
+async def test_mcp_upcoming_marks_repeats():
+    text = tool_text(await server.get_upcoming())
+    assert 'Put the bins out' in text and 'Repeating: next occurrence' in text
 
 
 def test_logbook_window_uses_completion_date():

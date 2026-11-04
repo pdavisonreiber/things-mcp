@@ -170,7 +170,68 @@ def today() -> list:
 
 
 def upcoming() -> list:
-    return filter_someday_project_tasks(things.upcoming(include_items=True) or [])
+    """Scheduled to-dos, plus the next occurrence of each repeating to-do.
+
+    Things only creates a repeating to-do's next instance on its start date,
+    so until then it exists only as a template that things.py leaves out. Each
+    template is listed once, on its next start date, with ``repeating: True``.
+    """
+    items = things.upcoming(include_items=True) or []
+    return filter_someday_project_tasks(items + _next_repeats())
+
+
+def _decode_things_date(value: int) -> Optional[str]:
+    """Things packs dates as year<<16 | month<<12 | day<<7."""
+    try:
+        return datetime(value >> 16, (value >> 12) & 0xF, (value >> 7) & 0x1F).date().isoformat()
+    except (TypeError, ValueError):
+        return None
+
+
+def _query(sql: str, params: Iterable = ()) -> list:
+    """Run a read-only query on the Things database; [] if it can't be read."""
+    import sqlite3
+    path = database_path()
+    if not path:
+        return []
+    try:
+        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        try:
+            return conn.execute(sql, tuple(params)).fetchall()
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return []
+
+
+_ACTIVE_TEMPLATE = ("rt1_recurrenceRule IS NOT NULL AND trashed = 0 AND status = 0 "
+                    "AND rt1_instanceCreationPaused = 0 AND type = 0")
+
+
+def _next_repeats() -> list:
+    """Repeating to-do templates whose next instance starts after today."""
+    today_iso = datetime.now().date().isoformat()
+    rows = _query(f"SELECT uuid, rt1_nextInstanceStartDate FROM TMTask "
+                  f"WHERE {_ACTIVE_TEMPLATE} AND rt1_nextInstanceStartDate IS NOT NULL")
+    items = []
+    for uuid, packed in rows:
+        day = _decode_things_date(packed)
+        if not day or day <= today_iso:
+            continue
+        template = get(uuid)
+        if template:
+            items.append({**template, 'start': 'Anytime', 'start_date': day, 'repeating': True})
+    return items
+
+
+def repeating_templates(uuids: Iterable[str]) -> set:
+    """The subset of ``uuids`` that are repeating to-do templates."""
+    uuids = list(uuids)
+    if not uuids:
+        return set()
+    marks = ','.join('?' * len(uuids))
+    return {r[0] for r in _query(
+        f"SELECT uuid FROM TMTask WHERE rt1_recurrenceRule IS NOT NULL AND uuid IN ({marks})", uuids)}
 
 
 def tomorrow() -> list:
@@ -336,19 +397,7 @@ def evening_uuids() -> set:
     (1 = This Evening), so read that one column directly, read-only. Returns
     an empty set if the database can't be read.
     """
-    import sqlite3
-    path = database_path()
-    if not path:
-        return set()
-    try:
-        conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
-        try:
-            rows = conn.execute("SELECT uuid FROM TMTask WHERE startBucket = 1").fetchall()
-        finally:
-            conn.close()
-    except sqlite3.Error:
-        return set()
-    return {r[0] for r in rows}
+    return {r[0] for r in _query("SELECT uuid FROM TMTask WHERE startBucket = 1")}
 
 
 def get(uuid: str):
@@ -381,8 +430,27 @@ def add_project(title, notes=None, when=None, deadline=None, tags=None,
     ))
 
 
+_SCHEDULING = {'when', 'deadline', 'completed', 'canceled'}
+
+
+def _refuse_repeating(ids: Iterable[str], changes: dict) -> None:
+    """Don't complete, cancel or reschedule a repeating to-do's template: the
+    ↻ rows in Upcoming stand for occurrences Things hasn't created yet."""
+    if not _SCHEDULING & {k for k, v in changes.items() if v is not None}:
+        return
+    templates = repeating_templates(ids)
+    if templates:
+        names = ", ".join(f"'{(get(t) or {}).get('title', t)}'" for t in sorted(templates))
+        raise ThingsError(
+            f"{names} {'is a repeating to-do' if len(templates) == 1 else 'are repeating to-dos'}: "
+            "upcoming repeats can't be completed, canceled or rescheduled until Things "
+            "creates them on their start date. Change the repeat in the Things app instead."
+        )
+
+
 def update_todo(id, **changes) -> None:
     """Update one to-do. ``changes`` are url_scheme.update_todo keyword args."""
+    _refuse_repeating([id], changes)
     url_scheme.execute_url(url_scheme.update_todo(id=id, **changes))
 
 
@@ -425,6 +493,7 @@ def bulk_update_todos(ids: list, list=None, list_id=None, tags=None, add_tags=No
 
     if not attributes:
         raise ThingsError("No changes specified — pass at least one attribute (list, tags, when, …).")
+    _refuse_repeating(ids, {'when': when, 'deadline': deadline, 'completed': completed, 'canceled': canceled})
 
     token = things.token()
     if not token:
@@ -466,6 +535,8 @@ def update_items(uuids: Iterable[str], **changes) -> int:
             project_ids.append(uuid)
         else:
             raise ThingsError(f"'{item.get('title', uuid)}' is a {kind}; only to-dos and projects can be changed this way")
+
+    _refuse_repeating(todo_ids, changes)
 
     project_ok = {'title', 'notes', 'when', 'deadline', 'tags', 'completed', 'canceled'}
     if project_ids and set(changes) - project_ok:

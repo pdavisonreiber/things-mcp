@@ -1,6 +1,13 @@
 import pytest
 from unittest.mock import patch
 
+
+@pytest.fixture(autouse=True)
+def no_real_database(monkeypatch, tmp_path):
+    """Never read the real Things database; integration tests point THINGSDB
+    at their synthetic one instead."""
+    monkeypatch.setenv('THINGSDB', str(tmp_path / 'no-such-database.sqlite'))
+
 @pytest.fixture
 def mock_todo():
     """Sample todo data for testing."""

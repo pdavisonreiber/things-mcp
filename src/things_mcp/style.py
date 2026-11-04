@@ -54,7 +54,7 @@ TAG_FG = '#d1d1d6'
 UNICODE_ICONS = {
     'inbox': '⊟', 'today': '★', 'evening': '☾', 'upcoming': '▦', 'anytime': '≋',
     'someday': '◫', 'logbook': '✔', 'trash': '⌫', 'area': '⬢', 'project': '◔',
-    'search': '⌕', 'deadline': '⚑', 'checklist': '≡', 'notes': '✎', 'reminder': '◷', 'heading': '▸',
+    'search': '⌕', 'deadline': '⚑', 'checklist': '≡', 'notes': '✎', 'reminder': '◷', 'heading': '▸', 'repeat': '↻',
     'todo': '☐', 'done': '☑', 'canceled': '☒', 'project_done': '●', 'project_canceled': '⊘',
 }
 
@@ -256,6 +256,8 @@ def row_title(item: dict) -> Text:
     """Checkbox, title and (if it has notes) a faint ✎, in one cell so headings
     can line up with the checkboxes."""
     t = Text.assemble(checkbox(item), '  ', title_cell(item))
+    if item.get('repeating'):
+        t.append(f" {ICONS['repeat']}", style=FAINT)
     if item.get('notes') and item.get('type') in ('to-do', 'project'):
         t.append(f" {ICONS['notes']}", style=FAINT)
     return t

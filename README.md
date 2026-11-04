@@ -162,6 +162,7 @@ things open today           # reveal a list or item in the Things app
 
 - **Referring to items:** use the number shown next to an item in the most recent listing, a full UUID, or a unique UUID prefix (at least 4 characters). Numbers are remembered in `~/.cache/things-mcp/last-list.json`.
 - **Output:** one line per item by default, in the same style as the TUI (grouped like the Things list, with colours in a terminal and plain text when piped); `--long` / `-l` prints full details; `--json` prints the same `{items, count, total, offset, limit}` envelope as the MCP tools' structured output. Listing commands take `--limit` / `-n` and `--offset`.
+- **Repeating to-dos:** Things only creates the next occurrence on its start date, so Upcoming and Tomorrow (here, in the TUI and in `get_upcoming`) add each repeating to-do's next occurrence, marked ↻ (paused repeats are left out). These can be edited but not completed, canceled or rescheduled until Things creates them.
 - **Several items at once:** `done`, `cancel`, `schedule`, `deadline`, `move` and `tag` accept several items. Multiple to-dos go to Things in one bulk call (this needs the URL-scheme auth token, which is read from the Things database automatically).
 - Run `things --help` or `things <command> --help` for every option.
 
