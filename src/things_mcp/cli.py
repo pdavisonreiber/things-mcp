@@ -612,13 +612,7 @@ def update_area_cmd(ref, title, tags):
 @main.command('tui')
 def tui_cmd():
     """Open the full-screen terminal interface."""
-    try:
-        from .tui import run
-    except ImportError as e:
-        raise click.ClickException(
-            f"The TUI needs the 'tui' extra ({e.name} is missing): "
-            "pip install 'things-mcp[tui]' or uv sync --extra tui"
-        )
+    from .tui import run  # imported lazily to keep CLI startup fast
     run()
 
 

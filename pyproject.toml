@@ -23,17 +23,14 @@ dependencies = [
     "things-py>=0.0.15",
     "click>=8.1",
     "rich>=13",
+    "textual>=1.0",
 ]
 
 [project.optional-dependencies]
-tui = [
-    "textual>=1.0",
-]
 test = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24.0",
     "pytest-mock>=3.14.0",
-    "textual>=1.0",
 ]
 
 [project.scripts]

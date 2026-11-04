@@ -12,7 +12,7 @@ lists aren't touched. Delete that area at the end (step 6).
 
 ```bash
 git clone https://github.com/pdavisonreiber/things-mcp && cd things-mcp
-uv sync --extra tui --extra test   # one sync with both; a later sync with only one removes the other
+uv sync --extra test
 alias things='uv run things'
 ```
 

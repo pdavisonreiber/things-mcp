@@ -15,7 +15,7 @@ uv run things-mcp
 # Run with HTTP transport
 THINGS_MCP_TRANSPORT=http uv run things-mcp
 
-# CLI and TUI (TUI needs the 'tui' extra: uv sync --extra tui)
+# CLI and TUI
 uv run things --help
 uv run things tui
 ```
@@ -79,7 +79,7 @@ This is a Model Context Protocol (MCP) server that bridges Claude Desktop with t
 
 4. **src/things_mcp/cli.py** - `things` CLI (Click). Items are referenced by number from the last listing (cached in `$XDG_CACHE_HOME/things-mcp/last-list.json`), full UUID, or UUID prefix; `--project`/`--area` filters also take an exact title (`_resolve_named`). `--json` mirrors the MCP structured envelope.
 
-5. **src/things_mcp/tui.py** - `things tui` / `things-tui` (Textual, optional `tui` extra). Mirrors the Things Mac app: sidebar order/nesting, list grouping (This Evening via `core.evening_uuids()`, which reads `TMTask.startBucket` because things.py doesn't), and key bindings taken from Things' Mac shortcuts with ⌘ dropped — keep new bindings consistent with that table in the README. Prompts use a persistent `CommandLine` above the key bar (one line idle; question on its own line above the input when asking) (`_ask` → `CommandLine.ask`; Enter submits, Escape cancels) and `?` opens a `HelpScreen` pop-up built from `KEY_HELP`. Writes are fire-and-forget, so it updates rows optimistically, re-reads after `REFRESH_AFTER_WRITE`, and polls the database file's mtime to pick up external changes.
+5. **src/things_mcp/tui.py** - `things tui` / `things-tui` (Textual). Mirrors the Things Mac app: sidebar order/nesting, list grouping (This Evening via `core.evening_uuids()`, which reads `TMTask.startBucket` because things.py doesn't), and key bindings taken from Things' Mac shortcuts with ⌘ dropped — keep new bindings consistent with that table in the README. Prompts use a persistent `CommandLine` above the key bar (one line idle; question on its own line above the input when asking) (`_ask` → `CommandLine.ask`; Enter submits, Escape cancels) and `?` opens a `HelpScreen` pop-up built from `KEY_HELP`. Writes are fire-and-forget, so it updates rows optimistically, re-reads after `REFRESH_AFTER_WRITE`, and polls the database file's mtime to pick up external changes.
 
    - **style.py** (shared with the CLI; must not import Textual) holds the Things-dark palette (`LIST_COLOURS`), icon sets (Unicode default; Nerd Font via `THINGS_TUI_ICONS=nerd`), the pixel-font `THINGS 3` sidebar logo, and the Rich renderers for rows, group headings, the list banner, sidebar entries and the detail card. Change the look there, not in tui.py or cli.py. The Textual theme (`THEME`) lives in tui.py.
 

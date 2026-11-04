@@ -133,14 +133,11 @@ The same package also installs a `things` command-line tool and a full-screen te
 ### Install
 
 ```bash
-# CLI only
+# Installs things (CLI), things-tui and things-mcp
 uv tool install "things-mcp @ git+https://github.com/pdavisonreiber/things-mcp"
 
-# CLI + TUI
-uv tool install "things-mcp[tui] @ git+https://github.com/pdavisonreiber/things-mcp"
-
 # From a checkout
-uv sync --extra tui && uv run things
+uv sync && uv run things
 ```
 
 Like the MCP server, it runs on the Mac where Things 3 is installed and needs "Enable Things URLs" turned on for writes.
